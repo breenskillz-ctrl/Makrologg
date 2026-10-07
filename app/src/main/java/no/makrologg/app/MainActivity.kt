@@ -27,7 +27,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         /** Raise when the bridge below gains features the web page depends on. */
-        const val NATIVE_API = 2
+        const val NATIVE_API = 3
         const val REPO = "breenskillz-ctrl/Makrologg"
         const val WEB_URL = "https://raw.githubusercontent.com/$REPO/main/app/src/main/assets/index.html"
         const val RELEASE_URL = "https://api.github.com/repos/$REPO/releases/latest"
@@ -36,6 +36,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var web: WebView
     private val io = Executors.newSingleThreadExecutor()
+    private val net = Executors.newFixedThreadPool(3)
     private var updateApkUrl: String? = null
     private val cachedHtml get() = File(filesDir, "web/index.html")
 
@@ -261,6 +262,29 @@ class MainActivity : AppCompatActivity() {
 
         @JavascriptInterface
         fun installUpdate() = downloadAndInstall()
+
+        /** Async HTTP GET for the page; answers via window.onNativeFetch(id, status, body). Status 0 = network error. */
+        @JavascriptInterface
+        fun fetchText(id: String, url: String, headersJson: String) {
+            net.execute {
+                var status = 0
+                var body = ""
+                try {
+                    val conn = URL(url).openConnection() as HttpURLConnection
+                    conn.connectTimeout = 10000; conn.readTimeout = 15000
+                    conn.setRequestProperty("User-Agent", "Makrologg-Android/1.0")
+                    try {
+                        val h = JSONObject(headersJson)
+                        h.keys().forEach { k -> conn.setRequestProperty(k, h.getString(k)) }
+                    } catch (_: Exception) { }
+                    status = conn.responseCode
+                    val stream = if (status in 200..299) conn.inputStream else conn.errorStream
+                    body = stream?.bufferedReader()?.use { it.readText() } ?: ""
+                    conn.disconnect()
+                } catch (_: Exception) { status = 0 }
+                js("window.onNativeFetch && window.onNativeFetch(${JSONObject.quote(id)}, $status, ${JSONObject.quote(body)})")
+            }
+        }
 
         @JavascriptInterface
         fun appVersion(): String = versionName

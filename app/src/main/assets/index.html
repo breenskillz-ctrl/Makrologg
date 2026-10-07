@@ -1,4 +1,4 @@
-<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="2"><title>Makrologg</title>
+<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="3"><title>Makrologg</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
 <style>
@@ -365,6 +365,10 @@ function viewGoals(){
     <div class="row"><input class="inp num" id="wIn" inputmode="decimal" placeholder="kg" style="flex:1;min-width:0" value=""><button class="btn primary" data-act="logWeight">Logg i dag</button></div>
     ${ws.length?`<div class="note num" style="margin-top:8px">Siste: ${fmt1(ws[ws.length-1][1])} kg (${dateLabel(ws[ws.length-1][0])})${ws.length>1?` · endring ${(ws[ws.length-1][1]-ws[0][1]>0?"+":"")+fmt1(ws[ws.length-1][1]-ws[0][1])} kg siden ${dateLabel(ws[0][0])}`:""}</div>`:`<div class="note" style="margin-top:8px">Logg vekten en gang i uka, gjerne om morgenen.</div>`}
     ${wchart}</section>
+    <div class="sect">Strekkoder</div><section class="card" style="display:flex;flex-direction:column;gap:10px">
+    <div class="note">Kassalapp har næringsinnhold for varene i norske dagligvarebutikker. Lag en gratis konto på kassal.app, gå til API under profilen din, lag en nøkkel og lim den inn her.</div>
+    <div class="field"><label for="kKey">Kassalapp API-nøkkel</label><input class="inp" id="kKey" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(kassalKey())}" placeholder="Lim inn nøkkelen"></div>
+    <button class="btn primary block" data-act="saveKey">Lagre nøkkel</button></section>
     <div class="sect">Backup</div><section class="card" style="display:flex;flex-direction:column;gap:10px">
     <div class="note">Alt lagres bare på telefonen. Ta en backup av og til, for eksempel til e-post eller Google Disk, så mister du ingenting om du bytter telefon.</div>
     <button class="btn primary block" data-act="exportData">Del backup</button>
@@ -441,7 +445,8 @@ function sheetAmount(s){
    <div class="field"><label for="amtMeal">Måltid</label><select class="inp" id="amtMeal">${MEALS.map(([k,l])=>`<option value="${k}" ${s.meal===k?"selected":""}>${l}</option>`).join("")}</select></div></div>
    <div class="preview num" id="amtPrev"></div>
    <button class="btn primary block" data-act="saveAmount">${s.entryId?"Lagre endring":"Legg til"}</button>
-   ${s.entryId?`<button class="btn danger block" data-act="deleteEntry">Slett fra dagen</button>`:""}`;
+   ${s.entryId?`<button class="btn danger block" data-act="deleteEntry">Slett fra dagen</button>`:""}
+   ${f.id&&!f.base&&foodsDoc().items&&foodsDoc().items[f.id]?`<button class="btn ghost block" data-act="editProduct" data-v="${esc(f.id)}">Feil vare eller verdier? Endre varen</button>`:""}`;
 }
 function updateAmountPreview(){
   const el=$("#amtPrev"); if(!el||!UI.sheet||UI.sheet.type!=="amount") return;
@@ -472,9 +477,20 @@ function sheetScan(s){
   return `${s.img?`<img class="thumb" src="${s.img}" alt="Bilde av strekkoden">`:""}
   ${s.busy?`<div class="busy"><div class="spin"></div>${esc(s.busy)}</div>`:""}
   ${s.msg?`<div class="note ${s.err?"err":""}">${esc(s.msg)}</div>`:""}
-  <button class="btn primary block" data-act="scanPhoto">${s.code?"Skann en ny vare":"Åpne skanneren"}</button>${s.offline?`<button class="btn ghost block" data-act="newFromCode">Legg inn ${esc(s.offline)} selv</button>`:""}
+  ${s.cand?candCard(s.cand):""}
+  <button class="btn ${s.cand?"ghost":"primary"} block" data-act="scanPhoto">${s.code?"Skann en ny vare":"Åpne skanneren"}</button>${s.offline?`<button class="btn ghost block" data-act="newFromCode">Legg inn ${esc(s.offline)} selv</button>`:""}
   <div class="field"><label for="bcIn">Eller skriv inn tallene under strekkoden</label><div class="row"><input class="inp num" id="bcIn" inputmode="numeric" style="flex:1;min-width:0" value="${esc(s.code||"")}"><button class="btn" data-act="bcLookup">Søk</button></div></div>
-  <div class="note">Næringsdata hentes fra Open Food Facts, en åpen database med mange norske varer. Varer du har skannet før, fungerer også uten nett.</div>`;
+  <div class="note">${kassalKey()?"Varer slås opp i Kassalapp (norske butikker) og deretter Open Food Facts.":"Varer slås opp i Open Food Facts. Legg inn en gratis Kassalapp-nøkkel under «Mål og vekt» for mye bedre treff på norske varer."} Varer du har bekreftet før, fungerer også uten nett.</div>`;
+}
+function candCard(c){
+  return `<section class="card" style="display:flex;flex-direction:column;gap:10px">
+    <div class="row" style="flex-wrap:nowrap;align-items:flex-start">${c.image?`<img src="${esc(c.image)}" alt="" style="width:64px;height:64px;object-fit:contain;border-radius:10px;background:#fff;flex-shrink:0">`:""}
+    <div style="min-width:0"><div style="font-weight:600;font-size:16px;overflow-wrap:anywhere">${esc(c.name)}</div><small class="note">Fra ${esc(c.source)}${c.barcode?` · ${esc(c.barcode)}`:""}</small></div></div>
+    <div class="preview num"><div><b>${r0(c.per.kcal)}</b><span>kcal</span></div><div><b style="color:var(--prot)">${fmt1(c.per.p)}</b><span>protein</span></div><div><b style="color:var(--carb)">${fmt1(c.per.c)}</b><span>karbo</span></div><div><b style="color:var(--fat)">${fmt1(c.per.f)}</b><span>fett</span></div></div>
+    <small class="note">Per 100 g. Er dette riktig vare?</small>
+    <button class="btn primary block" data-act="candOk">Riktig, velg mengde</button>
+    <div class="row"><button class="btn ghost" style="flex:1" data-act="candEdit">Rett opp verdiene</button><button class="btn ghost" style="flex:1" data-act="candWrong">Feil vare</button></div>
+  </section>`;
 }
 
 function sheetEstimate(s){
@@ -532,15 +548,62 @@ function findByBarcode(code){ return Object.values(foodsDoc().items||{}).find(p=
 function handleCode(code){
   const s=UI.sheet; code=String(code).replace(/\D/g,"");
   if(!code){ s.msg="Skriv inn tallene under strekkoden."; s.err=true; renderSheet(); return; }
+  s.cand=null; s.offline=null;
   const p=findByBarcode(code);
   if(p){ openAmount(p, s.meal); toast("Fant "+p.name); return; }
-  s.busy="Slår opp "+code+" i Open Food Facts …"; s.msg=""; s.err=false; renderSheet();
-  offLookup(code).then(r=>{
+  s.busy="Slår opp "+code+" …"; s.msg=""; s.err=false; renderSheet();
+  lookupBarcode(code).then(r=>{
     if(UI.sheet!==s) return;
-    if(r&&r.per){ const prod=saveProduct(r); openAmount(prod, s.meal); toast("Fant "+prod.name); return; }
-    const why = r&&r.noNutrition ? "Varen finnes i Open Food Facts, men mangler næringsverdier." : "Fant ikke varen i Open Food Facts.";
-    openSheet({type:"product", meal:s.meal, p:{barcode:code,name:(r&&r.name)||""}, msg:`${why} Fyll inn verdiene fra etiketten (per 100 g), så husker appen varen neste gang.`});
-  }).catch(()=>{ if(UI.sheet!==s) return; s.busy=""; s.msg="Fikk ikke kontakt med Open Food Facts. Sjekk nettet, eller legg inn varen selv."; s.err=true; s.offline=code; renderSheet(); });
+    s.busy="";
+    if(r.per){ s.cand=r; renderSheet(); return; }
+    const why = r.name ? `Fant «${r.name}», men uten næringsverdier.` : "Fant ikke varen.";
+    openSheet({type:"product", meal:s.meal, p:{barcode:code,name:r.name||""}, msg:`${why} Fyll inn verdiene fra etiketten (per 100 g), så husker appen varen neste gang.`});
+  }).catch(()=>{ if(UI.sheet!==s) return; s.busy=""; s.msg="Fikk ikke kontakt med databasene. Sjekk nettet, eller legg inn varen selv."; s.err=true; s.offline=code; renderSheet(); });
+}
+/* lookup order: Kassalapp (if key) -> Open Food Facts. Returns {per,...} or {name} or {} */
+async function lookupBarcode(code){
+  let name="", image="", errors=0, tried=0;
+  const key=kassalKey();
+  if(key){ tried++;
+    try{ const k=await kassalLookup(code,key); if(k&&k.per) return k; if(k&&k.name){ name=k.name; image=k.image||""; } }catch(e){ errors++; } }
+  tried++;
+  try{ const o=await offLookup(code);
+    if(o&&o.per){ if(name){ o.name=name; o.source="Kassalapp og Open Food Facts"; if(image) o.image=image; } return o; }
+    if(o&&o.name&&!name) name=o.name;
+  }catch(e){ errors++; }
+  if(errors===tried) throw new Error("offline");
+  return {name};
+}
+
+/* native HTTP (no CORS limits) with plain fetch as fallback */
+const NF={n:0,cb:{}};
+window.onNativeFetch=(id,status,body)=>{ const f=NF.cb[id]; delete NF.cb[id]; if(f) f(status,body); };
+function httpJson(url, headers={}){
+  if(window.Android&&Android.fetchText){
+    return new Promise((res,rej)=>{ const id=String(++NF.n); const t=setTimeout(()=>{ delete NF.cb[id]; rej(new Error("timeout")); },15000);
+      NF.cb[id]=(st,body)=>{ clearTimeout(t); if(st===0) return rej(new Error("net")); try{ res({status:st,json:body?JSON.parse(body):null}); }catch(e){ res({status:st,json:null}); } };
+      Android.fetchText(id,url,JSON.stringify(headers)); });
+  }
+  const ctl=new AbortController(); const t=setTimeout(()=>ctl.abort(),12000);
+  return fetch(url,{headers,signal:ctl.signal}).then(async r=>({status:r.status,json:await r.json().catch(()=>null)})).finally(()=>clearTimeout(t));
+}
+
+/* ---------- Kassalapp ---------- */
+const kassalKey = () => ((S.docs.profile||{}).settings||{}).kassalKey||"";
+async function kassalLookup(code,key){
+  const r=await httpJson(`https://kassal.app/api/v1/products/ean/${encodeURIComponent(code)}`,{Authorization:"Bearer "+key,Accept:"application/json"});
+  if(r.status===401||r.status===403){ toast("Kassalapp-nøkkelen ble avvist. Sjekk den under «Mål og vekt»."); throw new Error("auth"); }
+  if(r.status===404) return null;
+  if(r.status!==200||!r.json||!r.json.data) throw new Error("http "+r.status);
+  const d=r.json.data, prods=d.products||[], p=prods.find(x=>x&&x.name)||{};
+  const brand=p.brand||p.vendor||"";
+  const name=[p.name||"", brand && !(p.name||"").toLowerCase().includes(brand.toLowerCase()) ? brand : ""].filter(Boolean).join(" – ");
+  const image=(prods.find(x=>x&&x.image)||{}).image||"";
+  const nut={}; (d.nutrition||[]).forEach(n=>{ if(n&&n.code) nut[n.code]=Number(n.amount); });
+  let kcal=nut.energi_kcal; if(!isFinite(kcal)&&isFinite(nut.energi_kj)) kcal=nut.energi_kj/4.184;
+  if(!isFinite(kcal)) return {name,image};
+  return {name:name||("Vare "+code),image,source:"Kassalapp",barcode:code,
+    per:{kcal:kcal||0,p:nut.protein||0,f:nut.fett_totalt||0,c:nut.karbohydrater||0},portion:null};
 }
 
 /* ---------- app updates (Android) ---------- */
@@ -559,21 +622,25 @@ function updateBanner(){
 }
 
 /* ---------- Open Food Facts ---------- */
-const OFF_FIELDS="code,product_name,product_name_nb,product_name_no,brands,nutriments,serving_quantity,serving_size";
+const OFF_FIELDS="code,product_name,product_name_nb,product_name_no,product_name_en,generic_name,brands,quantity,nutriments,serving_quantity,serving_size,image_front_small_url";
 function offToProduct(p, code){
   const n=p.nutriments||{};
   let kcal=n["energy-kcal_100g"];
   if(kcal==null && n["energy_100g"]!=null) kcal=n["energy_100g"]/4.184;
   if(kcal==null) return null;
-  const name=[p.product_name_nb||p.product_name_no||p.product_name||"", p.brands?String(p.brands).split(",")[0].trim():""].filter(Boolean).join(" – ")||("Vare "+code);
+  const base=p.product_name_nb||p.product_name_no||p.product_name||p.product_name_en||p.generic_name||"";
+  const brands=p.brands?String(p.brands).split(",").map(x=>x.trim()).filter(Boolean):[];
+  const brand=brands.find(b=>!base.toLowerCase().includes(b.toLowerCase()))||"";
+  const name=[base||brands.join(" "), base?brand:"", p.quantity||""].filter(Boolean).join(" – ")||("Vare "+code);
   const sq=Number(p.serving_quantity);
   return {name, per:{kcal:Number(kcal)||0,p:Number(n.proteins_100g)||0,f:Number(n.fat_100g)||0,c:Number(n.carbohydrates_100g)||0},
-    portion: sq>0?{label:p.serving_size?String(p.serving_size).slice(0,24):"1 porsjon",g:sq}:null, barcode:code||p.code||null};
+    portion: sq>0?{label:p.serving_size?String(p.serving_size).slice(0,24):"1 porsjon",g:sq}:null, barcode:code||p.code||null,
+    source:"Open Food Facts", image:p.image_front_small_url||""};
 }
 async function offLookup(code){
   const ctl=new AbortController(); const t=setTimeout(()=>ctl.abort(),12000);
-  try{ const r=await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json?fields=${OFF_FIELDS}`,{signal:ctl.signal});
-    if(!r.ok) return null; const j=await r.json(); if(j.status!==1||!j.product) return {missing:true};
+  try{ const r=await httpJson(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json?fields=${OFF_FIELDS}`);
+    if(r.status===404) return {missing:true}; if(r.status!==200||!r.json) throw new Error("http"); const j=r.json; if(j.status!==1||!j.product) return {missing:true};
     return offToProduct(j.product,code)||{noNutrition:true,name:j.product.product_name||""};
   } finally { clearTimeout(t); }
 }
@@ -586,7 +653,7 @@ async function offSearch(q){
 function saveProduct(prod){
   const fd=clone(foodsDoc()); fd.kind="foods"; fd.items=fd.items||{};
   let id=prod.id; if(!id&&prod.barcode){ const ex=findByBarcode(prod.barcode); if(ex) id=ex.id; }
-  prod={...prod,id:id||"p"+uid(),updated:Date.now()}; fd.items[prod.id]=prod; writeDoc("foods",fd); return prod;
+  prod={id:id||"p"+uid(),name:prod.name,per:prod.per,portion:prod.portion||null,barcode:prod.barcode||null,source:prod.source||null,updated:Date.now()}; fd.items[prod.id]=prod; writeDoc("foods",fd); return prod;
 }
 window.onNativeBarcode = code => {
   if(!UI.sheet||UI.sheet.type!=="scan") openSheet({type:"scan",meal:UI.sheet?UI.sheet.meal:guessMeal()});
@@ -662,6 +729,10 @@ document.addEventListener("click", async ev=>{
   else if(a==="deleteProduct"){ const fd=clone(foodsDoc()); delete fd.items[UI.sheet.id]; writeDoc("foods",fd); closeSheet(); toast("Matvaren er slettet"); }
   else if(a==="scan"){ openSheet({type:"scan",meal:UI.sheet?UI.sheet.meal:guessMeal()}); startScan(); }
   else if(a==="scanPhoto"){ UI.sheet.code=""; UI.sheet.msg=""; UI.sheet.offline=null; renderSheet(); startScan(); }
+  else if(a==="candOk"){ const prod=saveProduct(UI.sheet.cand); openAmount(prod, UI.sheet.meal); }
+  else if(a==="candEdit"){ const c=UI.sheet.cand; openSheet({type:"product",meal:UI.sheet.meal,p:{name:c.name,kcal:r1(c.per.kcal),p:r1(c.per.p),c:r1(c.per.c),f:r1(c.per.f),porLabel:c.portion?.label||"",porG:c.portion?.g??"",barcode:c.barcode||""},msg:"Rett opp etter etiketten og lagre."}); }
+  else if(a==="candWrong"){ const c=UI.sheet.cand; openSheet({type:"product",meal:UI.sheet.meal,p:{barcode:c.barcode||UI.sheet.code||""},msg:"Fyll inn navn og verdier fra etiketten (per 100 g). Appen husker varen neste gang du skanner den."}); }
+  else if(a==="saveKey"){ const pr=clone(S.docs.profile||{kind:"profile"}); pr.kind="profile"; pr.settings=Object.assign({},pr.settings,{kassalKey:$("#kKey").value.trim()}); writeDoc("profile",pr); toast(pr.settings.kassalKey?"Nøkkelen er lagret":"Nøkkelen er fjernet"); }
   else if(a==="newFromCode"){ openSheet({type:"product",meal:UI.sheet.meal,p:{barcode:UI.sheet.offline}}); }
   else if(a==="offSearch"){ const s=UI.sheet, q=(s.q||"").trim().toLowerCase(); s.offQ=q; s.offBusy=true; s.offRes=null; s.offErr=false; renderSheet();
     offSearch(q).then(r=>{ s.offRes=r; }).catch(()=>{ s.offErr=true; }).finally(()=>{ s.offBusy=false; if(UI.sheet===s) renderSheet(); }); }
