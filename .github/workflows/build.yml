@@ -3,6 +3,9 @@ name: Bygg APK
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'app/src/main/assets/**'
+      - 'README.md'
   workflow_dispatch:
 
 permissions:
@@ -41,6 +44,6 @@ jobs:
         with:
           tag_name: v1.0.${{ github.run_number }}
           name: Makrologg 1.0.${{ github.run_number }}
-          body: Last ned Makrologg.apk under og åpne den på telefonen for å installere.
+          body: ${{ github.event.head_commit.message || 'Ny versjon av Makrologg.' }}
           files: Makrologg.apk
           make_latest: true

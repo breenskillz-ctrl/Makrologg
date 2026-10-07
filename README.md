@@ -15,3 +15,13 @@ Android spør om du vil tillate installasjon fra nettleseren første gang.
 
 Appen signeres alltid med samme nøkkel (`app/makrologg.keystore`), så nye versjoner
 installeres over den gamle uten at dataene forsvinner.
+
+## Oppdateringer
+
+- **Innhold** (`app/src/main/assets/index.html`): appen henter nyeste versjon fra `main`
+  ved oppstart og bruker den med en gang. Ingen ny APK trengs. Øk `web-version` ved endringer.
+  Krever endringen nye funksjoner i Android-delen, økes `min-native` og `NATIVE_API` i `MainActivity.kt`.
+- **Android-delen**: endringer utenfor `assets` bygger en ny APK under Releases. Appen viser
+  da «Ny versjon er klar» med en knapp som laster ned og installerer.
+
+Repoet må være offentlig for at appen skal finne oppdateringene.

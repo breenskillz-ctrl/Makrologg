@@ -1,4 +1,4 @@
-<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Makrologg</title>
+<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="2"><title>Makrologg</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
 <style>
@@ -123,6 +123,9 @@ nav.tabs button.on{color:var(--accent);background:var(--accent-soft)}
 .statrow b{display:block;font-family:var(--display);font-size:18px}
 .statrow span{font-size:11px;color:var(--muted)}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:14px;font-weight:600;z-index:40;max-width:90%}
+.upd{background:var(--accent);color:var(--accent-fg);border-radius:var(--r);padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.upd .btn{background:var(--accent-fg);color:var(--accent);align-self:flex-start}
+.upd small{opacity:.85;white-space:pre-line}
 .empty{color:var(--muted);font-size:13px;padding:0 16px 4px}
 .thumb{max-height:160px;border-radius:12px;object-fit:cover;width:100%}
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -260,7 +263,7 @@ function render(){
   $("#datenav").innerHTML = UI.tab==="dag" ? `<button data-act="day" data-v="-1" aria-label="Forrige dag">‹</button><div class="dlabel">${dateLabel(UI.date)}</div><button data-act="day" data-v="1" aria-label="Neste dag">›</button>` : "";
   if(!S.ready){ return; }
   const m=$("#main");
-  if(UI.tab==="dag") m.innerHTML = viewDay();
+  if(UI.tab==="dag") m.innerHTML = updateBanner() + viewDay();
   else if(UI.tab==="hist") m.innerHTML = viewHist();
   else m.innerHTML = viewGoals();
 }
@@ -366,7 +369,10 @@ function viewGoals(){
     <div class="note">Alt lagres bare på telefonen. Ta en backup av og til, for eksempel til e-post eller Google Disk, så mister du ingenting om du bytter telefon.</div>
     <button class="btn primary block" data-act="exportData">Del backup</button>
     <div class="field"><label for="backupTxt">Gjenopprett: lim inn backup-teksten her</label><textarea class="inp" id="backupTxt" rows="3"></textarea></div>
-    <button class="btn ghost block" data-act="importData">Gjenopprett fra backup</button></section>`;
+    <button class="btn ghost block" data-act="importData">Gjenopprett fra backup</button></section>
+    <div class="sect">Om appen</div><section class="card" style="display:flex;flex-direction:column;gap:10px">
+    <div class="note num">Versjon ${esc(window.Android&&Android.appVersion?Android.appVersion():"nett")} · innhold ${esc((document.querySelector('meta[name="web-version"]')||{}).content||"")}</div>
+    ${UPD.info?updateBanner():`<button class="btn ghost block" data-act="checkUpdates">Se etter oppdateringer</button>`}</section>`;
 }
 
 /* ---------- sheets ---------- */
@@ -537,6 +543,21 @@ function handleCode(code){
   }).catch(()=>{ if(UI.sheet!==s) return; s.busy=""; s.msg="Fikk ikke kontakt med Open Food Facts. Sjekk nettet, eller legg inn varen selv."; s.err=true; s.offline=code; renderSheet(); });
 }
 
+/* ---------- app updates (Android) ---------- */
+const UPD = { info:null, status:null, pct:0 };
+window.onUpdateAvailable = info => { UPD.info=info; render(); };
+window.onUpdateStatus = (st,pct) => { UPD.status=st; UPD.pct=pct||0; render(); };
+window.canReload = () => !UI.sheet && !(document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
+function updateBanner(){
+  if(!UPD.info) return "";
+  const st=UPD.status;
+  const msg = st==="progress" ? `Laster ned … ${UPD.pct} %` : st==="ready" ? "Lastet ned. Trykk «Installer» i vinduet som kommer opp." :
+    st==="permission" ? "Gi Makrologg lov til å installere apper, gå tilbake og trykk Oppdater igjen." : st==="error" ? "Nedlastingen feilet. Sjekk nettet og prøv igjen." : "";
+  const notes = UPD.info.notes ? String(UPD.info.notes).split("\n\n")[0].split("\nCo-Authored")[0] : "";
+  return `<section class="upd"><b>Ny versjon ${esc(UPD.info.version)} er klar</b>${notes?`<small>${esc(notes)}</small>`:""}${msg?`<small>${esc(msg)}</small>`:""}
+    ${st==="progress"?"":`<button class="btn" data-act="installUpdate">Oppdater</button>`}</section>`;
+}
+
 /* ---------- Open Food Facts ---------- */
 const OFF_FIELDS="code,product_name,product_name_nb,product_name_no,brands,nutriments,serving_quantity,serving_size";
 function offToProduct(p, code){
@@ -645,6 +666,8 @@ document.addEventListener("click", async ev=>{
   else if(a==="offSearch"){ const s=UI.sheet, q=(s.q||"").trim().toLowerCase(); s.offQ=q; s.offBusy=true; s.offRes=null; s.offErr=false; renderSheet();
     offSearch(q).then(r=>{ s.offRes=r; }).catch(()=>{ s.offErr=true; }).finally(()=>{ s.offBusy=false; if(UI.sheet===s) renderSheet(); }); }
   else if(a==="pickOff"){ const f=UI.sheet.offRes[Number(v)]; if(f){ const prod=saveProduct(f); openAmount(prod, UI.sheet.meal); } }
+  else if(a==="installUpdate"){ if(window.Android&&Android.installUpdate){ UPD.status="progress"; UPD.pct=0; render(); Android.installUpdate(); } }
+  else if(a==="checkUpdates"){ if(window.Android&&Android.checkUpdates){ Android.checkUpdates(); toast("Ser etter oppdateringer …"); } }
   else if(a==="exportData"){ const txt=JSON.stringify({app:"makrologg",v:1,exported:new Date().toISOString(),docs:S.docs});
     if(window.Android&&Android.share) Android.share(txt,"Makrologg-backup "+todayKey());
     else { const ta=$("#backupTxt"); ta.value=txt; ta.select(); try{ navigator.clipboard.writeText(txt); toast("Kopiert"); }catch(e){} } }
