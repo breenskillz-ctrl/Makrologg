@@ -19,14 +19,14 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - uses: android-actions/setup-android@v3
-
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
 
       - name: Bygg APK
-        run: gradle assembleRelease --no-daemon
+        run: |
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+          gradle assembleRelease --no-daemon --stacktrace
 
       - name: Gi APK-en et lesbart navn
         run: cp app/build/outputs/apk/release/app-release.apk Makrologg.apk
