@@ -15,22 +15,24 @@ android {
         versionName = "1.0." + (System.getenv("GITHUB_RUN_NUMBER") ?: "0")
     }
 
+    // The signing key is never stored in the repo. GitHub Actions decodes it from
+    // repository secrets (KEYSTORE_BASE64, KEYSTORE_PASSWORD) and passes it in here.
+    val storePath = System.getenv("SIGNING_STORE_FILE")
     signingConfigs {
-        create("fixed") {
-            storeFile = file("makrologg.keystore")
-            storePassword = "<fjernet>"
-            keyAlias = "makrologg"
-            keyPassword = "<fjernet>"
+        if (storePath != null) {
+            create("fixed") {
+                storeFile = file(storePath)
+                storePassword = System.getenv("SIGNING_STORE_PASSWORD")
+                keyAlias = System.getenv("SIGNING_KEY_ALIAS") ?: "makrologg"
+                keyPassword = System.getenv("SIGNING_STORE_PASSWORD")
+            }
         }
     }
 
     buildTypes {
         getByName("release") {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("fixed")
-        }
-        getByName("debug") {
-            signingConfig = signingConfigs.getByName("fixed")
+            if (storePath != null) signingConfig = signingConfigs.getByName("fixed")
         }
     }
     compileOptions {

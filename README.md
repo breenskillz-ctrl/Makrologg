@@ -13,8 +13,14 @@ Hver gang noe legges til i `main`, bygger GitHub Actions en ny APK.
 Gå til **Releases** i repoet fra telefonen, last ned `Makrologg.apk` og åpne den.
 Android spør om du vil tillate installasjon fra nettleseren første gang.
 
-Appen signeres alltid med samme nøkkel (`app/makrologg.keystore`), så nye versjoner
-installeres over den gamle uten at dataene forsvinner.
+Appen signeres alltid med samme nøkkel, så nye versjoner installeres over den gamle
+uten at dataene forsvinner. Nøkkelen ligger aldri i repoet, men i to GitHub Secrets
+(Settings → Secrets and variables → Actions):
+
+- `KEYSTORE_BASE64`: signeringsnøkkelen, base64-kodet
+- `KEYSTORE_PASSWORD`: passordet til nøkkelen
+
+Mister du nøkkelen, kan nye versjoner ikke installeres over den gamle. Ta vare på en kopi.
 
 ## Oppdateringer
 
