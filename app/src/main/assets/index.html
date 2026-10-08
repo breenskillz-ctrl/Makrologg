@@ -1,4 +1,4 @@
-<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="5"><title>Makrologg</title>
+<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="6"><title>Makrologg</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
 <style>
@@ -53,6 +53,11 @@ header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background
 .mrow .mtop span{color:var(--muted)}
 .bar{height:8px;border-radius:4px;background:var(--surface-2);overflow:hidden;margin-top:4px}
 .bar i{display:block;height:100%;border-radius:4px}
+.leftrow{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center}
+.leftrow div{background:var(--surface-2);border-radius:12px;padding:8px 4px}
+.leftrow b{display:block;font-family:var(--display);font-size:19px;line-height:1.2}
+.leftrow span{font-size:11px;color:var(--muted)}
+.leftrow .ov b{color:var(--over)}
 .kline{grid-column:1/-1;display:flex;justify-content:space-between;font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:10px}
 .kline b{color:var(--fg);font-weight:600}
 .meal{padding:0}
@@ -383,6 +388,8 @@ function viewDay(){
       <circle cx="66" cy="66" r="56" fill="none" stroke="${over?"var(--over)":"var(--kcal)"}" stroke-width="12" stroke-linecap="round" stroke-dasharray="${C*frac} ${C}"/></svg>
       <div class="center"><div class="big num">${r0(Math.abs(left))}</div><div class="small">${over?"kcal over":"kcal igjen"}</div></div></div>
     <div class="macros">${macroRow("Protein",t.p,g.p,"var(--prot)")}${macroRow("Karbohydrater",t.c,g.c,"var(--carb)")}${macroRow("Fett",t.f,g.f,"var(--fat)")}</div>
+    <div class="leftrow num">${[["kcal","kcal",""],["p","protein"," g"],["c","karbo"," g"],["f","fett"," g"]].map(([k,l,u])=>{ const r=g[k]-t[k], ov=r<-0.5;
+      return `<div class="${ov?"ov":""}"><b>${ov?"+":""}${r0(Math.abs(r))}${u}</b><span>${ov?l+" over":l+" igjen"}</span></div>`; }).join("")}</div>
     <div class="kline"><span>Spist <b class="num">${r0(t.kcal)}</b> kcal</span><span>Mål <b class="num">${r0(g.kcal)}</b> kcal${g.extra?` <span class="num">(+${r0(g.extra)} trening)</span>`:""}</span></div>
   </section>`;
   h += planCard(UI.date);
@@ -549,7 +556,7 @@ function viewGoals(){
     <div class="field"><label for="cact">Aktivitet</label><select class="inp" id="cact">
       ${[["1.2","Stillesittende"],["1.375","Litt aktiv (1–3 økter/uke)"],["1.55","Aktiv (3–5 økter/uke)"],["1.725","Svært aktiv (6–7 økter/uke)"],["1.9","Hardt fysisk arbeid + trening"]].map(([v,l])=>`<option value="${v}" ${String(prof.act||"1.55")===v?"selected":""}>${l}</option>`).join("")}</select></div></div>
     <div class="field"><label for="cgoal">Målsetting</label><select class="inp" id="cgoal">
-      ${[["-500","Gå ned i vekt (ca. 0,5 kg/uke)"],["-250","Gå rolig ned"],["0","Holde vekten"],["250","Bygge muskler (rolig opp)"]].map(([v,l])=>`<option value="${v}" ${String(prof.goal??"0")===v?"selected":""}>${l}</option>`).join("")}</select></div>
+      ${[["-1000","Gå raskt ned (ca. 1 kg/uke)"],["-500","Gå ned i vekt (ca. 0,5 kg/uke)"],["-250","Gå rolig ned"],["0","Holde vekten"],["250","Bygge muskler (rolig opp)"]].map(([v,l])=>`<option value="${v}" ${String(prof.goal??"0")===v?"selected":""}>${l}</option>`).join("")}</select></div>
     <button class="btn block" data-act="calc">Regn ut og fyll inn</button>
     <div class="note">Bruker Mifflin–St Jeor-formelen. Protein settes til ca. 1,8–2,2 g per kg, fett til 25–30 % av kaloriene og resten karbohydrater.</div></section>
 
@@ -1007,7 +1014,9 @@ Svar KUN med JSON: {"items":[{"name":"kort norsk navn","grams":tall,"kcal":tall,
     const sex=calcSex||prof.sex||"m", age=numIn($("#ca").value), h=numIn($("#ch").value), w=numIn($("#cw").value), act=numIn($("#cact").value), gl=numIn($("#cgoal").value);
     if(!age||!h||!w){ toast("Fyll inn alder, høyde og vekt"); return; }
     const bmr=10*w+6.25*h-5*age+(sex==="k"?-161:5);
-    const kcal=Math.round((bmr*act+gl)/10)*10;
+    const floor = sex==="k"?1200:1500;
+    let kcal=Math.round((bmr*act+gl)/10)*10;
+    if(kcal<floor){ kcal=floor; setTimeout(()=>toast(`Kalorimålet er satt til ${floor} kcal, det laveste vi anbefaler.`),2600); }
     const pPer = gl<0?2.0:gl>0?1.9:1.8;
     const p=Math.round(w*pPer), f=Math.round(kcal*(gl<0?0.27:0.28)/9), c=Math.max(0,Math.round((kcal-p*4-f*9)/4));
     $("#gk").value=kcal; $("#gp").value=p; $("#gf").value=f; $("#gc").value=c; updateGoalSum();
