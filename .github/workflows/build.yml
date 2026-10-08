@@ -6,6 +6,7 @@ on:
     paths-ignore:
       - 'app/src/main/assets/**'
       - 'README.md'
+      - '.github/workflows/cleanup.yml'
   workflow_dispatch:
 
 permissions:

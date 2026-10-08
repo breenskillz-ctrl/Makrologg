@@ -1,0 +1,25 @@
+name: Flytt versjonsmerker til renset historikk
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/cleanup.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  retag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Flytt merker og slett gammel gren
+        env:
+          GH_TOKEN: ${{ github.token }}
+          R: ${{ github.repository }}
+        run: |
+          for pair in v1.0.2=ea731046fc63e0d40590b714ba8f0058a5e30359 v1.0.3=2e8ef83fc65ab13523d9c5884f1c9f12562fa822 v1.0.4=8a3786f78c8ac1377605b897faad5aefd4d77b1d v1.0.5=a9ddddfa3ecf723faf713c503a021712a628edd1 v1.0.6=9352999824a4131e7ca8db7d9feca4c90e1a2bd5 v1.0.7=771f106daf9093097cfb0bca8497ae744a6928d4 v1.0.8=907a59e25a625836389258c040c409766857ccee v1.0.9=be5c2ff8a8d8c2483edc794def5cc7045ccacd2e ; do
+            tag=${pair%%=*}; sha=${pair#*=}
+            echo "$tag -> $sha"
+            gh api -X PATCH "repos/$R/git/refs/tags/$tag" -f sha="$sha" -F force=true --silent
+          done
+          gh api -X DELETE "repos/$R/git/refs/heads/flytt-nokkel-til-secrets" --silent || echo "Grenen var allerede borte"
