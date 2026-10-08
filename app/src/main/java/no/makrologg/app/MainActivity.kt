@@ -28,7 +28,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         /** Raise when the bridge below gains features the web page depends on. */
-        const val NATIVE_API = 4
+        const val NATIVE_API = 5
         const val REPO = "breenskillz-ctrl/Makrologg"
         const val WEB_URL = "https://raw.githubusercontent.com/$REPO/main/app/src/main/assets/index.html"
         const val RELEASE_URL = "https://api.github.com/repos/$REPO/releases/latest"
@@ -164,25 +164,41 @@ class MainActivity : AppCompatActivity() {
 
     /* ---------- APK updates from GitHub Releases ---------- */
 
-    private fun checkForApkUpdate() {
-        try {
-            val json = JSONObject(httpGet(RELEASE_URL) ?: return)
-            val tag = json.optString("tag_name")               // v1.0.<run number>
-            val remoteCode = tag.substringAfterLast('.').toLongOrNull() ?: return
-            if (remoteCode <= versionCode) return
-            val assets = json.optJSONArray("assets") ?: return
-            for (i in 0 until assets.length()) {
-                val a = assets.getJSONObject(i)
-                if (a.optString("name").endsWith(".apk")) {
-                    updateApkUrl = a.optString("browser_download_url")
-                    updateInfo = JSONObject()
-                        .put("version", tag.removePrefix("v"))
-                        .put("notes", json.optString("body").take(400))
-                    runOnUiThread { notifyUpdate() }
-                    return
-                }
-            }
-        } catch (_: Exception) { }
+    /** Latest release tag via the github.com redirect (not rate limited like the API). */
+    private fun latestTag(): String? {
+        val conn = URL("https://github.com/$REPO/releases/latest").openConnection() as HttpURLConnection
+        return try {
+            conn.instanceFollowRedirects = false
+            conn.connectTimeout = 10000; conn.readTimeout = 15000
+            conn.setRequestProperty("User-Agent", "Makrologg-Android")
+            val code = conn.responseCode
+            val loc = conn.getHeaderField("Location") ?: ""
+            lastCheckError = if (code in 300..399 && loc.contains("/tag/")) null else "svar $code"
+            if (loc.contains("/tag/")) loc.substringAfterLast("/tag/").substringBefore("?") else null
+        } catch (e: Exception) {
+            lastCheckError = e.javaClass.simpleName
+            null
+        } finally { conn.disconnect() }
+    }
+
+    private var lastCheckError: String? = null
+
+    private fun checkForApkUpdate(manual: Boolean = false) {
+        val tag = latestTag()
+        if (tag == null) {
+            if (manual) js("window.onUpdateCheck && window.onUpdateCheck('error', ${JSONObject.quote(lastCheckError ?: "")})")
+            return
+        }
+        val remoteCode = tag.substringAfterLast('.').toLongOrNull()
+        if (remoteCode == null || remoteCode <= versionCode) {
+            if (manual) js("window.onUpdateCheck && window.onUpdateCheck('none', ${JSONObject.quote(versionName)})")
+            return
+        }
+        updateApkUrl = "https://github.com/$REPO/releases/download/$tag/Makrologg.apk"
+        var notes = ""
+        try { notes = JSONObject(httpGet("https://api.github.com/repos/$REPO/releases/tags/$tag") ?: "{}").optString("body") } catch (_: Exception) { }
+        updateInfo = JSONObject().put("version", tag.removePrefix("v")).put("notes", notes.take(400))
+        runOnUiThread { notifyUpdate() }
     }
 
     private var updateInfo: JSONObject? = null
@@ -343,6 +359,6 @@ class MainActivity : AppCompatActivity() {
         fun nativeApi(): Int = NATIVE_API
 
         @JavascriptInterface
-        fun checkUpdates() { io.execute { fetchWebUpdate() }; io.execute { checkForApkUpdate() } }
+        fun checkUpdates() { io.execute { fetchWebUpdate() }; io.execute { checkForApkUpdate(true) } }
     }
 }

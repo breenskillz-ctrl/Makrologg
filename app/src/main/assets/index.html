@@ -1,4 +1,4 @@
-<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="4"><title>Makrologg</title>
+<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="5"><title>Makrologg</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
 <style>
@@ -807,6 +807,7 @@ async function kassalLookup(code,key){
 /* ---------- app updates (Android) ---------- */
 const UPD = { info:null, status:null, pct:0 };
 window.onUpdateAvailable = info => { UPD.info=info; render(); };
+window.onUpdateCheck = (st,info) => { if(st==="none") toast("Du har nyeste versjon ("+info+")"); else toast("Fikk ikke kontakt med GitHub"+(info?" ("+info+")":"")+". Prøv igjen senere."); };
 window.onUpdateStatus = (st,pct) => { UPD.status=st; UPD.pct=pct||0; render(); };
 window.canReload = () => !UI.sheet && !(document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
 function updateBanner(){
