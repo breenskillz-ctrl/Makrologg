@@ -1,4 +1,4 @@
-<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="6"><title>Makrologg</title>
+<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="7"><title>Makrologg</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
 <style>
@@ -96,7 +96,9 @@ nav.tabs button.on{color:var(--accent);background:var(--accent-soft)}
 .sheet .sh{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 8px;gap:10px}
 .sheet .sh h2{margin:0;font-family:var(--display);font-size:20px;font-weight:800}
 .sheet .x{border:0;background:var(--surface-2);width:34px;height:34px;border-radius:50%;font-size:18px;flex-shrink:0}
-.sheet .sb{overflow:auto;padding:4px 16px 20px;display:flex;flex-direction:column;gap:12px;max-width:560px;width:100%;margin:0 auto}
+.sheet .sb{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:4px 16px 20px;display:flex;flex-direction:column;gap:12px;max-width:560px;width:100%;margin:0 auto}
+.sheet .sb>*{flex-shrink:0}
+html.lock,html.lock body{overflow:hidden}
 .field{display:flex;flex-direction:column;gap:4px}
 .field label{font-size:12px;font-weight:600;color:var(--muted)}
 .inp{width:100%;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:11px 12px;font-size:16px}
@@ -585,6 +587,7 @@ function closeSheet(){
   UI.sheet=null; UI.addTarget=null; UI.tplDraft=null; renderSheet(); }
 function renderSheet(){
   const root=$("#sheetRoot"), s=UI.sheet;
+  document.documentElement.classList.toggle("lock", !!s);
   if(!s){ root.innerHTML=""; return; }
   const keepFocus=document.activeElement&&document.activeElement.id, selStart=document.activeElement&&document.activeElement.selectionStart;
   const sb=root.querySelector(".sb"), scroll=sb?sb.scrollTop:0;
