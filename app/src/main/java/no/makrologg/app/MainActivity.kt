@@ -12,6 +12,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
 import androidx.core.content.pm.PackageInfoCompat
@@ -27,7 +28,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         /** Raise when the bridge below gains features the web page depends on. */
-        const val NATIVE_API = 3
+        const val NATIVE_API = 4
         const val REPO = "breenskillz-ctrl/Makrologg"
         const val WEB_URL = "https://raw.githubusercontent.com/$REPO/main/app/src/main/assets/index.html"
         const val RELEASE_URL = "https://api.github.com/repos/$REPO/releases/latest"
@@ -43,6 +44,24 @@ class MainActivity : AppCompatActivity() {
     private val scanLauncher = registerForActivityResult(ScanContract()) { result ->
         val code = result.contents
         js("window.onNativeBarcode && window.onNativeBarcode(${if (code != null) JSONObject.quote(code) else "null"})")
+    }
+
+    private val notifLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { _ ->
+        js("window.onNotifPermission && window.onNotifPermission(${JSONObject.quote(notifState())})")
+    }
+
+    private fun notifState(): String = if (Reminders.canNotify(this)) "granted" else "off"
+
+    /* notification taps: deliver to the page once it has loaded */
+    private var pageReady = false
+    private var pendingCall: String? = null
+
+    private fun handleReminderIntent(i: Intent?) {
+        val slot = i?.getStringExtra("slot") ?: return
+        val day = i.getStringExtra("day") ?: ""
+        i.removeExtra("slot")
+        val call = "window.onReminderOpen && window.onReminderOpen(${JSONObject.quote(slot)}, ${JSONObject.quote(day)})"
+        if (pageReady) js(call) else pendingCall = call
     }
 
     private fun js(code: String) = runOnUiThread { web.evaluateJavascript(code, null) }
@@ -77,10 +96,16 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun onPageFinished(view: WebView, url: String?) {
+                pageReady = true
                 updateApkUrl?.let { notifyUpdate() }
+                pendingCall?.let { pendingCall = null; js(it) }
             }
         }
         web.addJavascriptInterface(Bridge(), "Android")
+
+        handleReminderIntent(intent)
+        addOnNewIntentListener { handleReminderIntent(it) }
+        Reminders.ensureChannel(this)
 
         loadPage(currentHtml())
         io.execute { fetchWebUpdate() }
@@ -288,6 +313,31 @@ class MainActivity : AppCompatActivity() {
 
         @JavascriptInterface
         fun appVersion(): String = versionName
+
+        @JavascriptInterface
+        fun scheduleReminders(json: String) = Reminders.replaceAll(this@MainActivity, json)
+
+        @JavascriptInterface
+        fun notifPermission(): String = notifState()
+
+        @JavascriptInterface
+        fun requestNotifPermission() {
+            runOnUiThread {
+                if (Build.VERSION.SDK_INT >= 33 && notifState() != "granted") {
+                    notifLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                } else {
+                    js("window.onNotifPermission && window.onNotifPermission(${JSONObject.quote(notifState())})")
+                }
+            }
+        }
+
+        @JavascriptInterface
+        fun openNotifSettings() {
+            runOnUiThread {
+                startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .putExtra(Settings.EXTRA_APP_PACKAGE, packageName))
+            }
+        }
 
         @JavascriptInterface
         fun nativeApi(): Int = NATIVE_API
