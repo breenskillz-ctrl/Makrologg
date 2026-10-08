@@ -1,4 +1,4 @@
-<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="7"><title>Makrologg</title>
+<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="8"><title>Makrologg</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
 <style>
@@ -61,7 +61,14 @@ header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background
 .kline{grid-column:1/-1;display:flex;justify-content:space-between;font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:10px}
 .kline b{color:var(--fg);font-weight:600}
 .meal{padding:0}
-.meal .mh{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;gap:8px}
+.meal .mh{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;gap:8px;width:100%;border:0;background:none;text-align:left;cursor:pointer;color:inherit;font:inherit}
+.meal .mh:disabled{cursor:default}
+.meal .mr{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.chev{width:18px;height:18px;color:var(--muted);transition:transform .2s}
+.meal.open .chev{transform:rotate(180deg)}
+@media (prefers-reduced-motion:reduce){.chev{transition:none}}
+.msum{padding:0 16px 2px;font-size:13px;color:var(--muted)}
+.qk-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .meal h3{margin:0;font-family:var(--display);font-weight:600;font-size:17px}
 .meal .mk{font-size:13px;color:var(--muted)}
 .meal ul{list-style:none;margin:0;padding:0}
@@ -352,6 +359,7 @@ function totals(day){ const t={kcal:0,p:0,f:0,c:0}; (day.entries||[]).forEach(e=
 const ICON = {
  day:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 8 8h-8z" fill="currentColor"/></svg>',
  hist:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 20V11M10 20V5M15 20v-7M20 20V8"/></svg>',
+ bolt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3 5 14h6l-1 7 8-11h-6z"/></svg>',
  clock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/></svg>',
  goal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>',
  scan:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 8V5h3M17 5h3v3M20 16v3h-3M7 19H4v-3M8 9v6M11 9v6M14 9v6M17 9v6"/></svg>',
@@ -406,9 +414,12 @@ function viewDay(){
     const kc=es.reduce((a,e)=>a+e.kcal,0);
     const yHas=(yday.entries||[]).some(e=>e.meal===mk);
     const tp=at[mk]&&!es.length?tplById(at[mk].tpl):null;
-    h += `<section class="card meal ${nx&&nx.meal===mk?"next":""}"><div class="mh"><div class="mt"><h3>${ml}</h3>${at[mk]?`<span class="tm num">${hhmm(at[mk].at)}</span>`:""}</div><span class="mk num">${es.length?r0(kc)+" kcal":""}</span></div>
+    const open=!!(UI.openMeals&&UI.openMeals[mk]);
+    const sm=es.reduce((a,e)=>{a.p+=e.p;a.c+=e.c;a.f+=e.f;return a;},{p:0,c:0,f:0});
+    h += `<section class="card meal ${nx&&nx.meal===mk?"next":""} ${open&&es.length?"open":""}"><button class="mh" data-act="toggleMeal" data-v="${mk}" ${es.length?`aria-expanded="${open}"`:"disabled"}><span class="mt"><h3>${ml}</h3>${at[mk]?`<span class="tm num">${hhmm(at[mk].at)}</span>`:""}</span><span class="mr"><span class="mk num">${es.length?r0(kc)+" kcal":""}</span>${es.length?`<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>`:""}</span></button>
+      ${es.length&&!open?`<div class="msum num">${es.length} ${es.length===1?"ting":"ting"} · P ${r0(sm.p)} g · K ${r0(sm.c)} g · F ${r0(sm.f)} g</div>`:""}
       ${tp?`<div class="fixed">Fast: ${esc(tp.name)} · ${r0(tplTotals(tp).kcal)} kcal</div>`:""}
-      ${es.length?`<ul>${es.map(e=>`<li data-act="editEntry" data-v="${e.id}"><div class="nm"><div>${esc(e.name)}${e.est?'<span class="tag">anslag</span>':""}</div><small class="num">${r0(e.g)} g · P ${fmt1(e.p)} · K ${fmt1(e.c)} · F ${fmt1(e.f)}</small></div><div class="kc num">${r0(e.kcal)}</div></li>`).join("")}</ul>`:""}
+      ${es.length&&open?`<ul>${es.map(e=>`<li data-act="editEntry" data-v="${e.id}"><div class="nm"><div>${esc(e.name)}${e.est?'<span class="tag">anslag</span>':""}${e.quick?'<span class="tag">hurtig</span>':""}</div><small class="num">${e.quick?"":r0(e.g)+" g · "}P ${fmt1(e.p)} · K ${fmt1(e.c)} · F ${fmt1(e.f)}</small></div><div class="kc num">${r0(e.kcal)}</div></li>`).join("")}</ul>`:""}
       <div class="mf">${tp?`<button class="btn primary" data-act="logSlotTpl" data-v="${mk}">Logg fast måltid</button><button class="btn ghost" data-act="add" data-v="${mk}">Noe annet</button>`
         :`<button class="btn primary" data-act="add" data-v="${mk}">+ Legg til</button>${!es.length&&yHas?`<button class="btn ghost" data-act="copyY" data-v="${mk}">Samme som i går</button>`:""}`}${es.length?`<button class="btn ghost" data-act="saveAsTpl" data-v="${mk}">Lagre som fast</button>`:""}</div></section>`;
   }
@@ -475,6 +486,26 @@ function viewPlan(){
 }
 
 function macroPreview(v){ return `<div class="preview num"><div><b>${r0(v.kcal)}</b><span>kcal</span></div><div><b style="color:var(--prot)">${fmt1(v.p)}</b><span>protein</span></div><div><b style="color:var(--carb)">${fmt1(v.c)}</b><span>karbo</span></div><div><b style="color:var(--fat)">${fmt1(v.f)}</b><span>fett</span></div></div>`; }
+
+function sheetQuick(s){
+  const v=k=>s[k]==null||s[k]===""?"":String(s[k]).replace(".",",");
+  return `<div class="note">Før inn tallene direkte, for eksempel fra en meny, en pakke eller noe du kjenner.</div>
+   <div class="field"><label for="qkName">Hva spiste du? (valgfritt)</label><input class="inp" id="qkName" value="${esc(s.name||"")}" placeholder="F.eks. Burger på restaurant"></div>
+   <div class="qk-grid">
+     <div class="field"><label for="qkK">Kalorier (kcal)</label><input class="inp num" id="qkK" inputmode="decimal" value="${v("kcal")}" placeholder="Regnes ut"></div>
+     <div class="field"><label for="qkP" style="color:var(--prot)">Protein (g)</label><input class="inp num" id="qkP" inputmode="decimal" value="${v("p")}" placeholder="0"></div>
+     <div class="field"><label for="qkC" style="color:var(--carb)">Karbohydrater (g)</label><input class="inp num" id="qkC" inputmode="decimal" value="${v("c")}" placeholder="0"></div>
+     <div class="field"><label for="qkF" style="color:var(--fat)">Fett (g)</label><input class="inp num" id="qkF" inputmode="decimal" value="${v("f")}" placeholder="0"></div></div>
+   <div class="note num" id="qkHint"></div>
+   ${s.meal==="tpl"?"":`<div class="field"><label for="qkMeal">Måltid</label><select class="inp" id="qkMeal">${MEALS.map(([k,l])=>`<option value="${k}" ${s.meal===k?"selected":""}>${l}</option>`).join("")}</select></div>`}
+   <button class="btn primary block" data-act="saveQuick">${s.entryId?"Lagre endring":s.meal==="tpl"?"Legg til i måltidet":"Logg"}</button>
+   ${s.entryId?`<button class="btn danger block" data-act="deleteEntry">Slett fra dagen</button>`:""}`;
+}
+function quickVals(){ const n=id=>{ const el=$(id); return el&&el.value.trim()!==""?numIn(el.value):null; };
+  const p=n("#qkP")||0, c=n("#qkC")||0, f=n("#qkF")||0, k=n("#qkK"); return {p,c,f,kcalIn:k,calc:p*4+c*4+f*9}; }
+function updateQuickHint(){ const el=$("#qkHint"); if(!el) return; const q=quickVals();
+  el.textContent = q.kcalIn==null ? (q.calc?`Kalorier regnes ut fra makroene: ${r0(q.calc)} kcal.`:"Lar du kalorier stå tomt, regnes de ut fra makroene.")
+    : (q.calc && Math.abs(q.calc-q.kcalIn)>Math.max(40,q.kcalIn*0.15) ? `Makroene gir ${r0(q.calc)} kcal. Sjekk at tallene stemmer.` : ""); }
 
 function sheetSlot(s){
   const tp=tplById(s.tpl), d=dayDoc(s.day), es=(d.entries||[]).filter(e=>e.meal===s.slot);
@@ -593,6 +624,7 @@ function renderSheet(){
   const sb=root.querySelector(".sb"), scroll=sb?sb.scrollTop:0;
   let title="", body="";
   if(s.type==="pick"){ title=s.meal==="tpl"?"Legg til i fast måltid":"Legg til i "+meal(s.meal).toLowerCase(); body=sheetPick(s); }
+  else if(s.type==="quick"){ title=s.entryId?"Endre hurtiglogg":"Hurtiglogg"; body=sheetQuick(s); }
   else if(s.type==="slot"){ title=meal(s.slot)+(s.at?" kl "+hhmm(s.at):""); body=sheetSlot(s); }
   else if(s.type==="tpl"){ title=UI.tplDraft.id&&tplById(UI.tplDraft.id)?"Endre fast måltid":"Nytt fast måltid"; body=sheetTpl(); }
   else if(s.type==="amount"){ title=s.entryId?"Endre":"Mengde"; body=sheetAmount(s); }
@@ -602,7 +634,7 @@ function renderSheet(){
   root.innerHTML=`<div class="scrim" data-act="close"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="sh"><h2>${esc(title)}</h2><button class="x" data-act="close" aria-label="Lukk">×</button></div><div class="sb">${body}</div></div>`;
   const nsb=root.querySelector(".sb"); if(nsb) nsb.scrollTop=scroll;
   if(keepFocus){ const el=document.getElementById(keepFocus); if(el){ el.focus(); try{ if(selStart!=null) el.setSelectionRange(selStart,selStart);}catch(e){} } }
-  updateAmountPreview(); updateGoalSum();
+  updateAmountPreview(); updateGoalSum(); updateQuickHint();
 }
 
 function allFoods(){
@@ -624,6 +656,7 @@ function sheetPick(s){
   const ai=!!SAMPLE && s.meal!=="tpl";
   let h=`<div class="tools">
     <button class="tool" data-act="scan">${ICON.scan}<span>Skann strekkode<small>Henter næringsinnhold</small></span></button>
+    <button class="tool" data-act="quick">${ICON.bolt}<span>Hurtiglogg<small>Bare kcal og makroer</small></span></button>
     ${ai?`<button class="tool" data-act="labelPhoto">${ICON.label}<span>Les etikett<small>Claude leser næringsinnhold</small></span></button>`:""}
     ${ai?`<button class="tool" data-act="estimate">${ICON.spark}<span>Beskriv måltid<small>Tekst eller bilde, Claude anslår</small></span></button>`:""}
     <button class="tool" data-act="newProduct">${ICON.pen}<span>Ny matvare<small>Fyll inn selv</small></span></button></div>
@@ -926,7 +959,18 @@ document.addEventListener("click", async ev=>{
     if(s.est) e.est=true;
     const i=d.entries.findIndex(x=>x.id===e.id); if(i>=0) d.entries[i]=e; else d.entries.push(e);
     writeDoc("day-"+UI.date,d); closeSheet(); toast(s.entryId?"Endret":"Lagt til i "+meal(m).toLowerCase()); }
+  else if(a==="toggleMeal"){ UI.openMeals=UI.openMeals||{}; UI.openMeals[v]=!UI.openMeals[v]; render(); }
+  else if(a==="quick"){ openSheet({type:"quick",meal:UI.sheet?UI.sheet.meal:guessMeal()}); }
+  else if(a==="saveQuick"){ const s=UI.sheet, q=quickVals(), name=$("#qkName").value.trim();
+    const kcal = q.kcalIn!=null ? q.kcalIn : q.calc;
+    if(!kcal && !q.p && !q.c && !q.f){ toast("Fyll inn minst ett tall"); return; }
+    if(UI.addTarget==="tpl"){ UI.tplDraft.items.push({name:name||"Hurtiglogg",g:100,per:{kcal,p:q.p,f:q.f,c:q.c},portion:null,foodId:null}); openSheet({type:"tpl"}); return; }
+    const m=$("#qkMeal").value, d=clone(dayDoc(UI.date)); d.kind="day"; d.date=UI.date; d.entries=d.entries||[];
+    const e={id:s.entryId||uid(),meal:m,name:name||"Hurtiglogg",quick:true,g:0,per:null,kcal,p:q.p,f:q.f,c:q.c};
+    const i=d.entries.findIndex(x=>x.id===e.id); if(i>=0) d.entries[i]=e; else d.entries.push(e);
+    writeDoc("day-"+UI.date,d); closeSheet(); toast(s.entryId?"Endret":`${r0(kcal)} kcal logget i ${meal(m).toLowerCase()}`); }
   else if(a==="editEntry"){ const e=(dayDoc(UI.date).entries||[]).find(x=>x.id===v); if(!e) return;
+    if(e.quick){ openSheet({type:"quick",entryId:e.id,meal:e.meal,name:e.name==="Hurtiglogg"?"":e.name,kcal:r1(e.kcal),p:r1(e.p),c:r1(e.c),f:r1(e.f)}); return; }
     const per=e.per||{kcal:e.kcal/e.g*100,p:e.p/e.g*100,f:e.f/e.g*100,c:e.c/e.g*100};
     openAmount({id:e.foodId,name:e.name,per,portion:e.portion,base:!e.foodId}, e.meal, {g:e.g, entryId:e.id, est:e.est}); }
   else if(a==="deleteEntry"){ const s=UI.sheet, d=clone(dayDoc(UI.date)); d.entries=(d.entries||[]).filter(x=>x.id!==s.entryId); writeDoc("day-"+UI.date,d); closeSheet(); toast("Slettet"); }
@@ -965,7 +1009,7 @@ document.addEventListener("click", async ev=>{
   else if(a==="newTpl"){ UI.tplDraft={id:"",name:"",items:[]}; openSheet({type:"tpl"}); }
   else if(a==="editTpl"){ const tp=tplById(v); if(tp){ UI.tplDraft=clone(tp); UI.tplDraft.items=UI.tplDraft.items||[]; openSheet({type:"tpl"}); } }
   else if(a==="saveAsTpl"){ const es=(dayDoc(UI.date).entries||[]).filter(e=>e.meal===v);
-    UI.tplDraft={id:"",name:"Min "+meal(v).toLowerCase(),items:es.map(e=>({name:e.name,g:e.g,per:e.per||{kcal:e.kcal/e.g*100,p:e.p/e.g*100,f:e.f/e.g*100,c:e.c/e.g*100},portion:e.portion||null,foodId:e.foodId||null}))};
+    UI.tplDraft={id:"",name:"Min "+meal(v).toLowerCase(),items:es.map(e=>e.quick?{name:e.name,g:100,per:{kcal:e.kcal,p:e.p,f:e.f,c:e.c},portion:null,foodId:null}:({name:e.name,g:e.g,per:e.per||{kcal:e.kcal/e.g*100,p:e.p/e.g*100,f:e.f/e.g*100,c:e.c/e.g*100},portion:e.portion||null,foodId:e.foodId||null}))};
     openSheet({type:"tpl"}); }
   else if(a==="tplAdd"){ UI.tplDraft.name=$("#tplName").value; UI.addTarget="tpl"; openSheet({type:"pick",meal:"tpl",q:""}); }
   else if(a==="tplItem"){ const i=UI.tplDraft.items[Number(v)]; UI.tplDraft.name=$("#tplName").value; UI.addTarget="tpl";
@@ -1038,6 +1082,7 @@ document.addEventListener("input", ev=>{
   else if(["gk","gp","gc","gf"].includes(id)) updateGoalSum();
   else if(id==="estText" && UI.sheet) UI.sheet.text=ev.target.value;
   else if(id==="tplName" && UI.tplDraft) UI.tplDraft.name=ev.target.value;
+  else if(["qkK","qkP","qkC","qkF"].includes(id)) updateQuickHint();
 });
 document.addEventListener("change", ev=>{
   if(ev.target.matches("[data-est]") && UI.sheet && UI.sheet.items){ UI.sheet.items[Number(ev.target.dataset.est)].on=ev.target.checked; }
