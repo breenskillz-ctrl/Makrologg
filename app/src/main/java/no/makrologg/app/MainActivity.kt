@@ -124,6 +124,18 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
+    private var lastCheck = 0L
+
+    override fun onResume() {
+        super.onResume()
+        val now = System.currentTimeMillis()
+        if (lastCheck != 0L && now - lastCheck > 60_000) {
+            io.execute { fetchWebUpdate() }
+            io.execute { checkForApkUpdate() }
+        }
+        if (lastCheck == 0L || now - lastCheck > 60_000) lastCheck = now
+    }
+
     /* ---------- page content: downloaded copy if compatible, else the bundled one ---------- */
 
     private fun bundledHtml(): String = assets.open("index.html").bufferedReader().use { it.readText() }
