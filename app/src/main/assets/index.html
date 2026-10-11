@@ -1,4 +1,4 @@
-<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="8"><title>Makrologg</title>
+<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="9"><title>Makrologg</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
 <style>
@@ -68,6 +68,20 @@ header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background
 .meal.open .chev{transform:rotate(180deg)}
 @media (prefers-reduced-motion:reduce){.chev{transition:none}}
 .msum{padding:0 16px 2px;font-size:13px;color:var(--muted)}
+.pbar{display:flex;gap:8px;overflow-x:auto;padding:2px 0 4px;margin-top:-4px;scrollbar-width:none}
+.pbar::-webkit-scrollbar{display:none}
+.pchip{flex-shrink:0;display:flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 14px 7px 10px;font-weight:600;font-size:14px;color:var(--fg)}
+.pchip small{font-weight:500;font-size:12px;color:var(--muted)}
+.pchip small.ov{color:var(--over)}
+.pchip.on{border-color:var(--accent);background:var(--accent-soft)}
+.pchip.add{padding:7px 14px;color:var(--accent);font-size:17px;line-height:1}
+.dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;display:inline-block}
+.plist .nm{display:flex;align-items:center;gap:8px}
+.whos{display:flex;flex-direction:column;gap:8px}
+.who{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface);border-radius:12px;padding:8px 8px 8px 12px}
+.who .whog{width:96px;flex-shrink:0;padding:8px 10px}
+.who .whog:disabled{opacity:.4}
+.flabel{font-size:12px;font-weight:600;color:var(--muted)}
 .qk-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .meal h3{margin:0;font-family:var(--display);font-weight:600;font-size:17px}
 .meal .mk{font-size:13px;color:var(--muted)}
@@ -222,14 +236,14 @@ const parseKey = k => { const [y,m,d]=k.split("-").map(Number); return new Date(
 const addDays = (k,n) => { const d=parseKey(k); d.setDate(d.getDate()+n); return keyOf(d); };
 const calKey = () => keyOf(new Date());
 /* "today" follows when you got up (shift work): a registered wake-up counts for 20 hours */
-function todayKey(){ const w=(typeof S!=="undefined"&&S.docs)?S.docs.wake:null, n=Date.now();
+function todayKey(){ const w=(typeof S!=="undefined"&&S.docs)?S.docs[pk("wake")]:null, n=Date.now();
   if(w&&w.day&&n-w.at<20*3600e3&&n>=w.at-3600e3) return w.day; return calKey(); }
 const DAYN = ["søn","man","tir","ons","tor","fre","lør"];
 const MON = ["jan","feb","mar","apr","mai","jun","jul","aug","sep","okt","nov","des"];
 function dateLabel(k){ const t=todayKey(); if(k===t) return "I dag"; if(k===addDays(t,-1)) return "I går"; if(k===addDays(t,1)) return "I morgen"; const d=parseKey(k); return DAYN[d.getDay()]+" "+d.getDate()+". "+MON[d.getMonth()]; }
 const numIn = v => { const n=parseFloat(String(v).replace(",",".")); return isFinite(n)?n:0; };
 const calc = (per,g) => ({kcal:per.kcal*g/100,p:per.p*g/100,f:per.f*g/100,c:per.c*g/100});
-function toast(msg){ const t=document.createElement("div"); t.className="toast"; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),2200); }
+function toast(msg){ document.querySelectorAll(".toast").forEach(x=>x.remove()); const t=document.createElement("div"); t.className="toast"; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),2200); }
 
 /* ---------- store: db capability, falls back to browser storage ---------- */
 const S = { docs:{}, mode:"local", db:null, uidv:null, ready:false };
@@ -238,7 +252,7 @@ function lsLoad(){ try{ return JSON.parse(localStorage.getItem(LSKEY)||"{}"); }c
 function lsSave(){ try{ localStorage.setItem(LSKEY, JSON.stringify(S.docs)); }catch(e){} }
 const queues = {};
 function writeDoc(id, data){
-  S.docs[id] = data; render(); reschedule();
+  S.docs[id] = data; renderSoon(); reschedule();
   if(S.mode!=="db"){ lsSave(); return; }
   const ref = S.db.doc("data/users/"+S.uidv+"/"+id);
   queues[id] = (queues[id]||Promise.resolve()).then(()=>ref.set(data)).catch(e=>{
@@ -247,23 +261,42 @@ function writeDoc(id, data){
   });
 }
 function delDoc(id){
-  delete S.docs[id]; render();
+  delete S.docs[id]; renderSoon();
   if(S.mode!=="db"){ lsSave(); return; }
   const ref=S.db.doc("data/users/"+S.uidv+"/"+id);
   queues[id]=(queues[id]||Promise.resolve()).then(()=>ref.delete()).catch(()=>{});
 }
 const clone = o => JSON.parse(JSON.stringify(o||{}));
-const dayDoc = k => S.docs["day-"+k] || {kind:"day",date:k,entries:[],water:0};
-const goals = () => Object.assign({}, DEFAULT_GOALS, (S.docs.profile||{}).goals||{});
+
+/* ---------- people: each has own goals, log, plan, weight. Foods and fixed meals are shared. ---------- */
+const PCOLORS=["#1f8a74","#3b74d6","#d2553f","#9a5bd0","#d4951c","#3f9a55"];
+let CUR="p0";                                     /* p0 keeps the original, unprefixed keys */
+const pk = id => CUR==="p0" ? id : CUR+":"+id;
+function people(){ const d=S.docs.people; if(d&&d.list&&d.list.length) return d;
+  return {kind:"people",list:[{id:"p0",name:"Meg",color:0}],active:"p0"}; }
+const multi = () => people().list.length>1;
+const personOf = id => people().list.find(x=>x.id===id) || {id,name:"",color:0};
+const pcolor = p => PCOLORS[(p.color||0)%PCOLORS.length];
+function syncActive(){ const p=people(); CUR = p.list.some(x=>x.id===p.active) ? p.active : p.list[0].id; }
+function withPerson(pid,fn){ const o=CUR; CUR=pid; try{ return fn(); } finally{ CUR=o; } }
+function personKeys(pid){ return Object.keys(S.docs).filter(k=> pid==="p0" ? (k==="profile"||k==="weights"||k==="wake"||k.startsWith("day-")) : k.startsWith(pid+":")); }
+function setActive(pid){ const p=clone(people()); p.kind="people"; p.active=pid; CUR=pid;
+  const wasToday = UI.date===UI.lastToday; UI.lastToday=todayKey(); if(wasToday) UI.date=UI.lastToday;
+  UI.wakeEdit=false; UI.openMeals={}; writeDoc("people",p); }
+function addToDay(pid, k, entry){ withPerson(pid, ()=>{ const d=clone(dayDoc(k)); d.kind="day"; d.date=k; d.entries=d.entries||[]; d.entries.push(entry); writeDoc(pk("day-")+k,d); }); }
+let renderT=null;
+function renderSoon(){ if(renderT) return; renderT=setTimeout(()=>{ renderT=null; render(); },0); }
+const dayDoc = k => S.docs[pk("day-")+k] || {kind:"day",date:k,entries:[],water:0};
+const goals = () => Object.assign({}, DEFAULT_GOALS, (S.docs[pk("profile")]||{}).goals||{});
 const foodsDoc = () => S.docs.foods || {kind:"foods",items:{}};
-const weightsDoc = () => S.docs.weights || {kind:"weights",items:{}};
+const weightsDoc = () => S.docs[pk("weights")] || {kind:"weights",items:{}};
 
 /* ---------- day plan ---------- */
 const HOUR=3600e3;
 const DEFAULT_PLAN = {defaultWake:"07:00", reminders:false,
   slots:{frokost:{on:true,off:30,tpl:""},lunsj:{on:true,off:270,tpl:""},middag:{on:true,off:540,tpl:""},kvelds:{on:true,off:780,tpl:""},snacks:{on:false,off:390,tpl:""}},
   pre:{before:90,tpl:"",extraKcal:300,defaultTime:"17:00"}};
-function plan(){ const p=(S.docs.profile||{}).plan||{}, out=clone(DEFAULT_PLAN);
+function plan(){ const p=(S.docs[pk("profile")]||{}).plan||{}, out=clone(DEFAULT_PLAN);
   if(p.defaultWake) out.defaultWake=p.defaultWake; if(p.reminders!=null) out.reminders=!!p.reminders;
   for(const k in out.slots) Object.assign(out.slots[k], (p.slots||{})[k]||{});
   Object.assign(out.pre, p.pre||{}); return out; }
@@ -290,19 +323,19 @@ function logTemplate(k, mk, tp, water){
   const d=clone(dayDoc(k)); d.kind="day"; d.date=k; d.entries=d.entries||[];
   for(const i of tp.items||[]){ const v=calc(i.per,i.g); d.entries.push({id:uid(),meal:mk,name:i.name,g:i.g,per:i.per,portion:i.portion||null,foodId:i.foodId||null,kcal:v.kcal,p:v.p,f:v.f,c:v.c}); }
   if(water) d.water=(d.water||0)+1;
-  writeDoc("day-"+k,d);
+  writeDoc(pk("day-")+k,d);
 }
 function setWake(ts){
   const day=keyOf(new Date(ts));
   UI.date=day; UI.lastToday=day; UI.wakeEdit=false;
   const d=clone(dayDoc(day)); d.kind="day"; d.date=day; d.wake={at:ts};
-  S.docs.wake={kind:"wake",at:ts,day};
-  writeDoc("day-"+day,d); writeDoc("wake",S.docs.wake);
+  S.docs[pk("wake")]={kind:"wake",at:ts,day};
+  writeDoc(pk("day-")+day,d); writeDoc(pk("wake"),S.docs[pk("wake")]);
   toast(`Sto opp kl ${hhmm(ts)}. Måltidstidene er oppdatert.`);
 }
 function wakeFromClock(t){ let ts=clockOn(calKey(),t); if(ts>Date.now()+30*60000) ts-=24*HOUR; return ts; }
 function recentWakes(){ const c={};
-  Object.keys(S.docs).filter(k=>k.startsWith("day-")).sort().reverse().slice(0,30).forEach(k=>{ const w=S.docs[k].wake; if(w&&w.at){ const t=hhmm(w.at); c[t]=(c[t]||0)+1; } });
+  Object.keys(S.docs).filter(k=>k.startsWith(pk("day-"))).sort().reverse().slice(0,30).forEach(k=>{ const w=S.docs[k].wake; if(w&&w.at){ const t=hhmm(w.at); c[t]=(c[t]||0)+1; } });
   const arr=Object.keys(c).sort((a,b)=>c[b]-c[a]).slice(0,3); const dw=plan().defaultWake;
   if(!arr.includes(dw)&&arr.length<3) arr.push(dw); return arr.sort(); }
 
@@ -311,8 +344,12 @@ let schedT=null;
 function reschedule(){ clearTimeout(schedT); schedT=setTimeout(pushReminders,500); }
 const canRemind = () => !!(window.Android&&Android.scheduleReminders);
 function hashId(str){ let h=7; for(const c of str) h=(h*31+c.charCodeAt(0))|0; return Math.abs(h)%2000000000+1; }
-function reminderList(){
+function reminderList(){ const all=[];
+  for(const p of people().list) withPerson(p.id, ()=>{ all.push(...reminderListFor(p)); });
+  return all; }
+function reminderListFor(person){
   const pl=plan(); if(!pl.reminders) return [];
+  const who = multi() ? ` · ${person.name}` : "";
   const now=Date.now(), t=todayKey(), out=[]; let lastToday=0;
   for(const k of [t, addDays(t,1)]){
     const d=dayDoc(k);
@@ -322,7 +359,7 @@ function reminderList(){
       if(sl.at<now+30000 || hasMeal(d,sl.meal)) continue;
       const tp=tplById(sl.tpl), what=tp?`${tp.name}, ${r0(tplTotals(tp).kcal)} kcal. `:"";
       const text = sl.meal==="pre" ? `Trening kl ${hhmm(sl.train)}. ${what||"Spis litt nå. "}Husk et glass vann.` : `${what||"Tid for å spise. "}Husk et glass vann.`;
-      out.push({id:hashId(k+":"+sl.meal), at:sl.at, title:`${meal(sl.meal)} kl ${hhmm(sl.at)}`, text, slot:sl.meal, day:k});
+      out.push({id:hashId(person.id+":"+k+":"+sl.meal), at:sl.at, title:`${meal(sl.meal)} kl ${hhmm(sl.at)}${who}`, text, slot:person.id+"|"+sl.meal, day:k});
     }
   }
   return out;
@@ -330,10 +367,12 @@ function reminderList(){
 function pushReminders(){ if(!canRemind()||!S.ready) return; try{ Android.scheduleReminders(JSON.stringify(reminderList())); }catch(e){} }
 function notifState(){ try{ return window.Android&&Android.notifPermission ? Android.notifPermission() : "none"; }catch(e){ return "none"; } }
 window.onNotifPermission = st => { if(st!=="granted") toast("Varsler er slått av for Makrologg"); render(); };
-window.onReminderOpen = (slot, day) => { UI.tab="dag"; if(day) UI.date=day; render(); openSlot(slot, day||UI.date); };
+window.onReminderOpen = (slot, day) => { if(String(slot).includes("|")){ const [pid,sl]=slot.split("|"); slot=sl;
+    if(people().list.some(x=>x.id===pid) && pid!==CUR) setActive(pid); }
+  UI.tab="dag"; if(day) UI.date=day; render(); openSlot(slot, day||UI.date); };
 function openSlot(slot,k){ const sl=daySchedule(k).find(x=>x.meal===slot); openSheet({type:"slot",slot,day:k,at:sl?sl.at:null,tpl:sl?sl.tpl:""}); }
 
-function initStore(){ S.docs=lsLoad(); S.ready=true; UI.date=todayKey(); UI.lastToday=UI.date; render(); reschedule(); }
+function initStore(){ S.docs=lsLoad(); syncActive(); S.ready=true; UI.date=todayKey(); UI.lastToday=UI.date; render(); reschedule(); }
 document.addEventListener("visibilitychange",()=>{ if(document.hidden||!S.ready) return;
   const t=todayKey(); if(UI.lastToday!==t){ if(UI.date===UI.lastToday) UI.date=t; UI.lastToday=t; } render(); reschedule(); });
 
@@ -374,13 +413,20 @@ function render(){
     .map(([k,l,i])=>`<button data-act="tab" data-v="${k}" class="${UI.tab===k?"on":""}">${i}${l}</button>`).join("");
   $("#datenav").innerHTML = UI.tab==="dag" ? `<button data-act="day" data-v="-1" aria-label="Forrige dag">‹</button><div class="dlabel">${dateLabel(UI.date)}</div><button data-act="day" data-v="1" aria-label="Neste dag">›</button>` : "";
   if(!S.ready){ return; }
-  const m=$("#main");
-  if(UI.tab==="dag") m.innerHTML = updateBanner() + viewDay();
-  else if(UI.tab==="hist") m.innerHTML = viewHist();
-  else if(UI.tab==="plan") m.innerHTML = viewPlan();
-  else m.innerHTML = viewGoals();
+  const m=$("#main"), pb=personBar();
+  if(UI.tab==="dag") m.innerHTML = pb + updateBanner() + viewDay();
+  else if(UI.tab==="hist") m.innerHTML = pb + viewHist();
+  else if(UI.tab==="plan") m.innerHTML = pb + viewPlan();
+  else m.innerHTML = pb + viewGoals();
 }
 
+function personBar(){
+  if(!multi()) return "";
+  return `<nav class="pbar" aria-label="Velg person">${people().list.map(p=>{
+    const left = withPerson(p.id, ()=> goalsFor(UI.date).kcal - totals(dayDoc(UI.date)).kcal);
+    return `<button class="pchip ${p.id===CUR?"on":""}" data-act="person" data-v="${p.id}" aria-pressed="${p.id===CUR}"><span class="dot" style="background:${pcolor(p)}"></span><span class="pn">${esc(p.name)}</span>${UI.tab==="dag"?`<small class="num ${left<0?"ov":""}">${left<0?"+"+r0(-left)+" over":r0(left)+" igjen"}</small>`:""}</button>`;
+  }).join("")}<button class="pchip add" data-act="newPerson" aria-label="Legg til person">+</button></nav>`;
+}
 function macroRow(label,val,goal,color){
   const pct=Math.min(100, goal? val/goal*100:0);
   const over = val>goal*1.05;
@@ -403,7 +449,7 @@ function viewDay(){
     <div class="kline"><span>Spist <b class="num">${r0(t.kcal)}</b> kcal</span><span>Mål <b class="num">${r0(g.kcal)}</b> kcal${g.extra?` <span class="num">(+${r0(g.extra)} trening)</span>`:""}</span></div>
   </section>`;
   h += planCard(UI.date);
-  if(!(S.docs.profile)) h += `<section class="card"><div style="font-weight:600;margin-bottom:4px">Sett dine egne mål</div><div class="note" style="margin-bottom:10px">Målene over er standardverdier. Regn ut dine basert på vekt, høyde og aktivitet.</div><button class="btn primary" data-act="tab" data-v="mal">Regn ut mål</button></section>`;
+  if(!(S.docs[pk("profile")])) h += `<section class="card"><div style="font-weight:600;margin-bottom:4px">Sett dine egne mål</div><div class="note" style="margin-bottom:10px">Målene over er standardverdier. Regn ut dine basert på vekt, høyde og aktivitet.</div><button class="btn primary" data-act="tab" data-v="mal">Regn ut mål</button></section>`;
   const yday = dayDoc(addDays(UI.date,-1));
   const sch=daySchedule(UI.date), at={}; sch.forEach(x=>at[x.meal]=x);
   const nx=nextSlot(UI.date);
@@ -487,6 +533,28 @@ function viewPlan(){
 
 function macroPreview(v){ return `<div class="preview num"><div><b>${r0(v.kcal)}</b><span>kcal</span></div><div><b style="color:var(--prot)">${fmt1(v.p)}</b><span>protein</span></div><div><b style="color:var(--carb)">${fmt1(v.c)}</b><span>karbo</span></div><div><b style="color:var(--fat)">${fmt1(v.f)}</b><span>fett</span></div></div>`; }
 
+function sheetPerson(s){
+  const canDel = s.id && people().list.length>1;
+  return `<div class="field"><label for="psName">Navn</label><input class="inp" id="psName" value="${esc(s.name||"")}" placeholder="F.eks. Kari" autocomplete="off"></div>
+   ${s.id?"":`<div class="note">Personen starter med standardmål. Du kommer rett til «Mål og vekt» for å regne ut riktige mål.</div>`}
+   <button class="btn primary block" data-act="savePerson">${s.id?"Lagre":"Legg til"}</button>
+   ${canDel?(s.confirmDel?`<div class="note err">Dette sletter all logg, mål, plan og vekt for ${esc(s.name)}. Det kan ikke angres.</div><button class="btn danger block" data-act="deletePerson">Ja, slett ${esc(s.name)}</button>`
+     :`<button class="btn danger block" data-act="askDeletePerson">Slett person</button>`):""}`;
+}
+function whoRows(s){
+  if(!multi() || s.meal==="tpl" || s.entryId) return "";
+  const others=people().list.filter(p=>p.id!==CUR); s.who=s.who||{};
+  return `<div class="field"><span class="flabel">Logg også for</span><div class="whos">${others.map(p=>{ const on=s.who[p.id]!=null;
+    return `<div class="who"><label class="tgl"><input type="checkbox" data-who="${p.id}" ${on?"checked":""}><span class="dot" style="background:${pcolor(p)}"></span><span>${esc(p.name)}</span></label>
+      ${s.type==="amount"?`<input class="inp num whog" data-whog="${p.id}" inputmode="decimal" aria-label="Gram for ${esc(p.name)}" value="${on?esc(s.who[p.id]):""}" placeholder="gram" ${on?"":"disabled"}>`:""}</div>`; }).join("")}</div>
+    ${s.type==="quick"?`<div class="note">De valgte får de samme tallene.</div>`:""}</div>`;
+}
+function logForOthers(s, makeEntry){
+  const names=[]; for(const [pid,val] of Object.entries(s.who||{})){ if(val==null) continue;
+    const e=makeEntry(val); if(!e) continue; addToDay(pid, UI.date, e); names.push(personOf(pid).name); }
+  return names;
+}
+
 function sheetQuick(s){
   const v=k=>s[k]==null||s[k]===""?"":String(s[k]).replace(".",",");
   return `<div class="note">Før inn tallene direkte, for eksempel fra en meny, en pakke eller noe du kjenner.</div>
@@ -498,6 +566,7 @@ function sheetQuick(s){
      <div class="field"><label for="qkF" style="color:var(--fat)">Fett (g)</label><input class="inp num" id="qkF" inputmode="decimal" value="${v("f")}" placeholder="0"></div></div>
    <div class="note num" id="qkHint"></div>
    ${s.meal==="tpl"?"":`<div class="field"><label for="qkMeal">Måltid</label><select class="inp" id="qkMeal">${MEALS.map(([k,l])=>`<option value="${k}" ${s.meal===k?"selected":""}>${l}</option>`).join("")}</select></div>`}
+   ${whoRows(s)}
    <button class="btn primary block" data-act="saveQuick">${s.entryId?"Lagre endring":s.meal==="tpl"?"Legg til i måltidet":"Logg"}</button>
    ${s.entryId?`<button class="btn danger block" data-act="deleteEntry">Slett fra dagen</button>`:""}`;
 }
@@ -538,7 +607,7 @@ function sheetTpl(){
 
 function viewHist(){
   const g=goals(), t=todayKey(), days=[];
-  for(let i=13;i>=0;i--){ const k=addDays(t,-i); const d=S.docs["day-"+k]; days.push({k,t:d?totals(d):null}); }
+  for(let i=13;i>=0;i--){ const k=addDays(t,-i); const d=S.docs[pk("day-")+k]; days.push({k,t:d?totals(d):null}); }
   const logged=days.filter(x=>x.t&&x.t.kcal>0);
   const avg = k => logged.length? logged.reduce((a,x)=>a+x.t[k],0)/logged.length : 0;
   const W=340,H=170,pl=34,pb=22,pt=10, max=Math.max(g.kcal*1.25, ...days.map(x=>x.t?x.t.kcal:0));
@@ -561,7 +630,7 @@ function viewHist(){
 }
 
 function viewGoals(){
-  const g=goals(), prof=(S.docs.profile||{}).body||{};
+  const g=goals(), prof=(S.docs[pk("profile")]||{}).body||{};
   const ws=Object.entries(weightsDoc().items||{}).sort((a,b)=>a[0]<b[0]?-1:1);
   let wchart="";
   if(ws.length>=2){
@@ -572,7 +641,12 @@ function viewGoals(){
     wchart=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;margin-top:8px" role="img" aria-label="Vektutvikling"><path d="${path} L${last[0]} ${H} L${pts[0][0]} ${H}Z" fill="var(--accent-soft)"/><path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2"/><circle cx="${last[0]}" cy="${last[1]}" r="4" fill="var(--accent)"/></svg>`;
   }
   const lastW = ws.length? ws[ws.length-1][1] : prof.weight||"";
-  return `<div class="sect">Daglige mål</div><section class="card" style="display:flex;flex-direction:column;gap:12px">
+  const pl=people().list;
+  return `<div class="sect">Personer</div><section class="card" style="display:flex;flex-direction:column;gap:10px">
+    <div class="list plist">${pl.map(p=>`<button data-act="editPerson" data-v="${p.id}"><span class="nm"><span class="dot" style="background:${pcolor(p)}"></span>${esc(p.name)}${p.id===CUR?'<span class="tag">valgt</span>':""}</span><small>Endre</small></button>`).join("")}</div>
+    <button class="btn ghost block" data-act="newPerson">+ Legg til person</button>
+    <div class="note">Hver person har egne mål, egen logg, plan og vekt. Matvarer og faste måltider er felles. Når du logger mat, kan du også logge den for de andre.</div></section>
+    <div class="sect">Daglige mål${multi()?" for "+esc(personOf(CUR).name):""}</div><section class="card" style="display:flex;flex-direction:column;gap:12px">
     <div class="grid2"><div class="field"><label for="gk">Kalorier (kcal)</label><input class="inp num" id="gk" inputmode="numeric" value="${r0(g.kcal)}"></div>
     <div class="field"><label for="gp">Protein (g)</label><input class="inp num" id="gp" inputmode="numeric" value="${r0(g.p)}"></div>
     <div class="field"><label for="gc">Karbohydrater (g)</label><input class="inp num" id="gc" inputmode="numeric" value="${r0(g.c)}"></div>
@@ -624,6 +698,7 @@ function renderSheet(){
   const sb=root.querySelector(".sb"), scroll=sb?sb.scrollTop:0;
   let title="", body="";
   if(s.type==="pick"){ title=s.meal==="tpl"?"Legg til i fast måltid":"Legg til i "+meal(s.meal).toLowerCase(); body=sheetPick(s); }
+  else if(s.type==="person"){ title=s.id?"Endre person":"Ny person"; body=sheetPerson(s); }
   else if(s.type==="quick"){ title=s.entryId?"Endre hurtiglogg":"Hurtiglogg"; body=sheetQuick(s); }
   else if(s.type==="slot"){ title=meal(s.slot)+(s.at?" kl "+hhmm(s.at):""); body=sheetSlot(s); }
   else if(s.type==="tpl"){ title=UI.tplDraft.id&&tplById(UI.tplDraft.id)?"Endre fast måltid":"Nytt fast måltid"; body=sheetTpl(); }
@@ -643,7 +718,7 @@ function allFoods(){
 }
 function recentFoods(){
   const seen=new Set(), out=[];
-  const ks=Object.keys(S.docs).filter(k=>k.startsWith("day-")).sort().reverse();
+  const ks=Object.keys(S.docs).filter(k=>k.startsWith(pk("day-"))).sort().reverse();
   for(const k of ks){ for(const e of (S.docs[k].entries||[]).slice().reverse()){ const key=e.name.toLowerCase(); if(seen.has(key)||!e.per) continue; seen.add(key); out.push({id:e.foodId||"r"+out.length,name:e.name,per:e.per,portion:e.portion||null,lastG:e.g}); if(out.length>=12) return out; } }
   return out;
 }
@@ -685,6 +760,7 @@ function sheetAmount(s){
    <div class="grid2"><div class="field"><label for="amtG">Mengde (gram)</label><input class="inp num" id="amtG" inputmode="decimal" value="${s.g??""}"></div>
    ${s.meal==="tpl"?"":`<div class="field"><label for="amtMeal">Måltid</label><select class="inp" id="amtMeal">${MEALS.map(([k,l])=>`<option value="${k}" ${s.meal===k?"selected":""}>${l}</option>`).join("")}</select></div>`}</div>
    <div class="preview num" id="amtPrev"></div>
+   ${whoRows(s)}
    <button class="btn primary block" data-act="saveAmount">${s.meal==="tpl"?(s.tplIndex!=null?"Lagre endring":"Legg til i måltidet"):s.entryId?"Lagre endring":"Legg til"}</button>
    ${s.entryId?`<button class="btn danger block" data-act="deleteEntry">Slett fra dagen</button>`:""}
    ${f.id&&!f.base&&foodsDoc().items&&foodsDoc().items[f.id]?`<button class="btn ghost block" data-act="editProduct" data-v="${esc(f.id)}">Feil vare eller verdier? Endre varen</button>`:""}`;
@@ -830,7 +906,7 @@ function httpJson(url, headers={}){
 }
 
 /* ---------- Kassalapp ---------- */
-const kassalKey = () => ((S.docs.profile||{}).settings||{}).kassalKey||"";
+const kassalKey = () => (S.docs.settings||{}).kassalKey || ((S.docs.profile||{}).settings||{}).kassalKey || "";
 async function kassalLookup(code,key){
   const r=await httpJson(`https://kassal.app/api/v1/products/ean/${encodeURIComponent(code)}`,{Authorization:"Bearer "+key,Accept:"application/json"});
   if(r.status===401||r.status===403){ toast("Kassalapp-nøkkelen ble avvist. Sjekk den under «Mål og vekt»."); throw new Error("auth"); }
@@ -942,8 +1018,8 @@ document.addEventListener("click", async ev=>{
   else if(a==="add"){ openSheet({type:"pick",meal:v,q:""}); }
   else if(a==="copyY"){ const y=dayDoc(addDays(UI.date,-1)), d=clone(dayDoc(UI.date));
     const add=(y.entries||[]).filter(e=>e.meal===v).map(e=>({...clone(e),id:uid()}));
-    d.entries=(d.entries||[]).concat(add); d.kind="day"; d.date=UI.date; writeDoc("day-"+UI.date,d); toast(add.length+" ting kopiert"); }
-  else if(a==="water"){ const d=clone(dayDoc(UI.date)); d.kind="day"; d.date=UI.date; d.water=Math.max(0,(d.water||0)+Number(v)); writeDoc("day-"+UI.date,d); }
+    d.entries=(d.entries||[]).concat(add); d.kind="day"; d.date=UI.date; writeDoc(pk("day-")+UI.date,d); toast(add.length+" ting kopiert"); }
+  else if(a==="water"){ const d=clone(dayDoc(UI.date)); d.kind="day"; d.date=UI.date; d.water=Math.max(0,(d.water||0)+Number(v)); writeDoc(pk("day-")+UI.date,d); }
   else if(a==="pickFood"){ const f=allFoods().find(x=>x.id===v); if(f) openAmount(f, UI.sheet.meal); }
   else if(a==="pickRecent"){ const f=recentFoods().find(x=>x.id===v); if(f) openAmount(f, UI.sheet.meal, {lastG:f.lastG}); }
   else if(a==="portion"){ $("#amtG").value=v; UI.sheet.g=numIn(v); updateAmountPreview(); }
@@ -958,7 +1034,25 @@ document.addEventListener("click", async ev=>{
     const e={id:s.entryId||uid(),meal:m,name:s.food.name,g,per:s.food.per,portion:s.food.portion||null,foodId:s.food.base?null:(s.food.id||null),kcal:v2.kcal,p:v2.p,f:v2.f,c:v2.c};
     if(s.est) e.est=true;
     const i=d.entries.findIndex(x=>x.id===e.id); if(i>=0) d.entries[i]=e; else d.entries.push(e);
-    writeDoc("day-"+UI.date,d); closeSheet(); toast(s.entryId?"Endret":"Lagt til i "+meal(m).toLowerCase()); }
+    writeDoc(pk("day-")+UI.date,d);
+    const others = s.entryId ? [] : logForOthers(s, val=>{ const gg=numIn(val); if(gg<=0) return null; const v3=calc(s.food.per,gg);
+      return {id:uid(),meal:m,name:s.food.name,g:gg,per:s.food.per,portion:s.food.portion||null,foodId:e.foodId,kcal:v3.kcal,p:v3.p,f:v3.f,c:v3.c}; });
+    closeSheet(); toast(s.entryId?"Endret":others.length?`Lagt til for ${[personOf(CUR).name,...others].join(", ")}`:"Lagt til i "+meal(m).toLowerCase()); }
+  else if(a==="person"){ if(v!==CUR) setActive(v); }
+  else if(a==="newPerson"){ openSheet({type:"person"}); }
+  else if(a==="editPerson"){ const p=personOf(v); openSheet({type:"person",id:p.id,name:p.name}); }
+  else if(a==="askDeletePerson"){ UI.sheet.confirmDel=true; UI.sheet.name=$("#psName").value.trim()||UI.sheet.name; renderSheet(); }
+  else if(a==="savePerson"){ const s=UI.sheet, name=$("#psName").value.trim(); if(!name){ toast("Skriv inn et navn"); return; }
+    const p=clone(people()); p.kind="people";
+    if(s.id){ p.list.find(x=>x.id===s.id).name=name; UI.sheet=null; renderSheet(); writeDoc("people",p); toast("Lagret"); }
+    else { const used=new Set(p.list.map(x=>x.color)); let c=0; while(used.has(c)&&c<PCOLORS.length) c++;
+      const id="p"+uid(); p.list.push({id,name,color:c%PCOLORS.length}); UI.sheet=null; renderSheet(); writeDoc("people",p);
+      setActive(id); UI.tab="mal"; window.scrollTo(0,0); toast(`${name} er lagt til. Sett målene her.`); } }
+  else if(a==="deletePerson"){ const s=UI.sheet, p=clone(people()); p.kind="people";
+    p.list=p.list.filter(x=>x.id!==s.id); if(!p.list.length) return;
+    personKeys(s.id).forEach(k=>delDoc(k));
+    if(p.active===s.id) p.active=p.list[0].id;
+    UI.sheet=null; renderSheet(); writeDoc("people",p); CUR=p.active; UI.date=todayKey(); UI.lastToday=UI.date; toast(`${s.name} er slettet`); }
   else if(a==="toggleMeal"){ UI.openMeals=UI.openMeals||{}; UI.openMeals[v]=!UI.openMeals[v]; render(); }
   else if(a==="quick"){ openSheet({type:"quick",meal:UI.sheet?UI.sheet.meal:guessMeal()}); }
   else if(a==="saveQuick"){ const s=UI.sheet, q=quickVals(), name=$("#qkName").value.trim();
@@ -968,12 +1062,14 @@ document.addEventListener("click", async ev=>{
     const m=$("#qkMeal").value, d=clone(dayDoc(UI.date)); d.kind="day"; d.date=UI.date; d.entries=d.entries||[];
     const e={id:s.entryId||uid(),meal:m,name:name||"Hurtiglogg",quick:true,g:0,per:null,kcal,p:q.p,f:q.f,c:q.c};
     const i=d.entries.findIndex(x=>x.id===e.id); if(i>=0) d.entries[i]=e; else d.entries.push(e);
-    writeDoc("day-"+UI.date,d); closeSheet(); toast(s.entryId?"Endret":`${r0(kcal)} kcal logget i ${meal(m).toLowerCase()}`); }
+    writeDoc(pk("day-")+UI.date,d);
+    const others = s.entryId ? [] : logForOthers(s, ()=>({...e,id:uid()}));
+    closeSheet(); toast(s.entryId?"Endret":others.length?`${r0(kcal)} kcal logget for ${[personOf(CUR).name,...others].join(", ")}`:`${r0(kcal)} kcal logget i ${meal(m).toLowerCase()}`); }
   else if(a==="editEntry"){ const e=(dayDoc(UI.date).entries||[]).find(x=>x.id===v); if(!e) return;
     if(e.quick){ openSheet({type:"quick",entryId:e.id,meal:e.meal,name:e.name==="Hurtiglogg"?"":e.name,kcal:r1(e.kcal),p:r1(e.p),c:r1(e.c),f:r1(e.f)}); return; }
     const per=e.per||{kcal:e.kcal/e.g*100,p:e.p/e.g*100,f:e.f/e.g*100,c:e.c/e.g*100};
     openAmount({id:e.foodId,name:e.name,per,portion:e.portion,base:!e.foodId}, e.meal, {g:e.g, entryId:e.id, est:e.est}); }
-  else if(a==="deleteEntry"){ const s=UI.sheet, d=clone(dayDoc(UI.date)); d.entries=(d.entries||[]).filter(x=>x.id!==s.entryId); writeDoc("day-"+UI.date,d); closeSheet(); toast("Slettet"); }
+  else if(a==="deleteEntry"){ const s=UI.sheet, d=clone(dayDoc(UI.date)); d.entries=(d.entries||[]).filter(x=>x.id!==s.entryId); writeDoc(pk("day-")+UI.date,d); closeSheet(); toast("Slettet"); }
   else if(a==="newProduct"){ openSheet({type:"product",meal:UI.sheet?UI.sheet.meal:null,p:{name:t.dataset.name||""}}); }
   else if(a==="editProduct"){ const p=foodsDoc().items[v]; if(p) openSheet({type:"product",id:p.id,p:{name:p.name,kcal:p.per.kcal,p:p.per.p,c:p.per.c,f:p.per.f,porLabel:p.portion?.label||"",porG:p.portion?.g??"",barcode:p.barcode||""}}); }
   else if(a==="saveProduct"){
@@ -991,7 +1087,7 @@ document.addEventListener("click", async ev=>{
   else if(a==="candOk"){ const prod=saveProduct(UI.sheet.cand); openAmount(prod, UI.sheet.meal); }
   else if(a==="candEdit"){ const c=UI.sheet.cand; openSheet({type:"product",meal:UI.sheet.meal,p:{name:c.name,kcal:r1(c.per.kcal),p:r1(c.per.p),c:r1(c.per.c),f:r1(c.per.f),porLabel:c.portion?.label||"",porG:c.portion?.g??"",barcode:c.barcode||""},msg:"Rett opp etter etiketten og lagre."}); }
   else if(a==="candWrong"){ const c=UI.sheet.cand; openSheet({type:"product",meal:UI.sheet.meal,p:{barcode:c.barcode||UI.sheet.code||""},msg:"Fyll inn navn og verdier fra etiketten (per 100 g). Appen husker varen neste gang du skanner den."}); }
-  else if(a==="saveKey"){ const pr=clone(S.docs.profile||{kind:"profile"}); pr.kind="profile"; pr.settings=Object.assign({},pr.settings,{kassalKey:$("#kKey").value.trim()}); writeDoc("profile",pr); toast(pr.settings.kassalKey?"Nøkkelen er lagret":"Nøkkelen er fjernet"); }
+  else if(a==="saveKey"){ const st=clone(S.docs.settings||{kind:"settings"}); st.kind="settings"; st.kassalKey=$("#kKey").value.trim(); writeDoc("settings",st); toast(st.kassalKey?"Nøkkelen er lagret":"Nøkkelen er fjernet"); }
   else if(a==="newFromCode"){ openSheet({type:"product",meal:UI.sheet.meal,p:{barcode:UI.sheet.offline}}); }
   else if(a==="offSearch"){ const s=UI.sheet, q=(s.q||"").trim().toLowerCase(); s.offQ=q; s.offBusy=true; s.offRes=null; s.offErr=false; renderSheet();
     offSearch(q).then(r=>{ s.offRes=r; }).catch(()=>{ s.offErr=true; }).finally(()=>{ s.offBusy=false; if(UI.sheet===s) renderSheet(); }); }
@@ -1005,7 +1101,7 @@ document.addEventListener("click", async ev=>{
   else if(a==="logTpl"){ const tp=tplById(v); if(tp){ const mk=UI.sheet.meal; UI.sheet=null; UI.addTarget=null; renderSheet(); logTemplate(UI.date,mk,tp,false); toast(`${tp.name} er logget`); } }
   else if(a==="slotLog"){ const s=UI.sheet, tp=tplById(s.tpl), w=$("#slotWater").checked; UI.date=s.day; closeSheet(); logTemplate(s.day,s.slot,tp,w); toast(`${tp.name} er logget${w?", pluss ett glass vann":""}`); }
   else if(a==="slotOther"){ const s=UI.sheet; UI.date=s.day; openSheet({type:"pick",meal:s.slot,q:""}); }
-  else if(a==="slotWaterOnly"){ const s=UI.sheet, d=clone(dayDoc(s.day)); d.kind="day"; d.date=s.day; d.water=(d.water||0)+1; closeSheet(); writeDoc("day-"+s.day,d); toast("Ett glass vann er logget"); }
+  else if(a==="slotWaterOnly"){ const s=UI.sheet, d=clone(dayDoc(s.day)); d.kind="day"; d.date=s.day; d.water=(d.water||0)+1; closeSheet(); writeDoc(pk("day-")+s.day,d); toast("Ett glass vann er logget"); }
   else if(a==="newTpl"){ UI.tplDraft={id:"",name:"",items:[]}; openSheet({type:"tpl"}); }
   else if(a==="editTpl"){ const tp=tplById(v); if(tp){ UI.tplDraft=clone(tp); UI.tplDraft.items=UI.tplDraft.items||[]; openSheet({type:"tpl"}); } }
   else if(a==="saveAsTpl"){ const es=(dayDoc(UI.date).entries||[]).filter(e=>e.meal===v);
@@ -1027,7 +1123,7 @@ document.addEventListener("click", async ev=>{
     if(window.Android&&Android.share) Android.share(txt,"Makrologg-backup "+todayKey());
     else { const ta=$("#backupTxt"); ta.value=txt; ta.select(); try{ navigator.clipboard.writeText(txt); toast("Kopiert"); }catch(e){} } }
   else if(a==="importData"){ try{ const j=JSON.parse($("#backupTxt").value); if(j.app!=="makrologg"||!j.docs) throw 0;
-      S.docs=j.docs; lsSave(); render(); toast("Backup gjenopprettet"); }catch(e){ toast("Teksten er ikke en gyldig backup"); } }
+      S.docs=j.docs; lsSave(); syncActive(); UI.date=todayKey(); UI.lastToday=UI.date; render(); reschedule(); toast("Backup gjenopprettet"); }catch(e){ toast("Teksten er ikke en gyldig backup"); } }
   else if(a==="bcLookup"){ handleCode($("#bcIn").value); }
   else if(a==="labelPhoto"){ if(UI.sheet && UI.sheet.type==="product") UI.sheet.p=readProductForm(); $("#fileLabel").click(); }
   else if(a==="estimate"){ openSheet({type:"estimate",meal:UI.sheet.meal,text:(UI.sheet.q||"")}); }
@@ -1050,14 +1146,14 @@ Svar KUN med JSON: {"items":[{"name":"kort norsk navn","grams":tall,"kcal":tall,
     const s=UI.sheet, d=clone(dayDoc(UI.date)); d.kind="day"; d.date=UI.date; d.entries=d.entries||[];
     const chosen=s.items.filter(x=>x.on!==false);
     chosen.forEach(x=>{ const g=x.grams>0?x.grams:100; d.entries.push({id:uid(),meal:s.meal,name:x.name,g,per:{kcal:x.kcal/g*100,p:x.protein/g*100,f:x.fat/g*100,c:x.carbs/g*100},kcal:x.kcal,p:x.protein,f:x.fat,c:x.carbs,est:true}); });
-    writeDoc("day-"+UI.date,d); closeSheet(); toast(chosen.length+" ting lagt til"); }
+    writeDoc(pk("day-")+UI.date,d); closeSheet(); toast(chosen.length+" ting lagt til"); }
   else if(a==="saveGoals"){
-    const prof=clone(S.docs.profile||{kind:"profile"}); prof.kind="profile";
+    const prof=clone(S.docs[pk("profile")]||{kind:"profile"}); prof.kind="profile";
     prof.goals={kcal:numIn($("#gk").value),p:numIn($("#gp").value),c:numIn($("#gc").value),f:numIn($("#gf").value),water:Math.max(1,Math.round(numIn($("#gw").value)))};
-    writeDoc("profile",prof); toast("Målene er lagret"); }
+    writeDoc(pk("profile"),prof); toast("Målene er lagret"); }
   else if(a==="sex"){ calcSex=v; document.querySelectorAll("#sexSeg button").forEach(b=>b.classList.toggle("on",b.dataset.v===v)); }
   else if(a==="calc"){
-    const prof=(S.docs.profile||{}).body||{};
+    const prof=(S.docs[pk("profile")]||{}).body||{};
     const sex=calcSex||prof.sex||"m", age=numIn($("#ca").value), h=numIn($("#ch").value), w=numIn($("#cw").value), act=numIn($("#cact").value), gl=numIn($("#cgoal").value);
     if(!age||!h||!w){ toast("Fyll inn alder, høyde og vekt"); return; }
     const bmr=10*w+6.25*h-5*age+(sex==="k"?-161:5);
@@ -1067,11 +1163,11 @@ Svar KUN med JSON: {"items":[{"name":"kort norsk navn","grams":tall,"kcal":tall,
     const pPer = gl<0?2.0:gl>0?1.9:1.8;
     const p=Math.round(w*pPer), f=Math.round(kcal*(gl<0?0.27:0.28)/9), c=Math.max(0,Math.round((kcal-p*4-f*9)/4));
     $("#gk").value=kcal; $("#gp").value=p; $("#gf").value=f; $("#gc").value=c; updateGoalSum();
-    const pr=clone(S.docs.profile||{kind:"profile"}); pr.kind="profile"; pr.body={sex,age,height:h,weight:w,act:String(act),goal:String(gl)};
-    pr.goals={kcal,p,c,f,water:goals().water}; writeDoc("profile",pr);
+    const pr=clone(S.docs[pk("profile")]||{kind:"profile"}); pr.kind="profile"; pr.body={sex,age,height:h,weight:w,act:String(act),goal:String(gl)};
+    pr.goals={kcal,p,c,f,water:goals().water}; writeDoc(pk("profile"),pr);
     toast(`Vedlikehold ca. ${Math.round(bmr*act/10)*10} kcal. Mål lagret.`); }
   else if(a==="logWeight"){ const w=numIn($("#wIn").value); if(w<20||w>400){ toast("Skriv inn vekten i kg"); return; }
-    const wd=clone(weightsDoc()); wd.kind="weights"; wd.items=wd.items||{}; wd.items[todayKey()]=w; writeDoc("weights",wd); toast("Vekt logget"); }
+    const wd=clone(weightsDoc()); wd.kind="weights"; wd.items=wd.items||{}; wd.items[todayKey()]=w; writeDoc(pk("weights"),wd); toast("Vekt logget"); }
 });
 
 document.addEventListener("input", ev=>{
@@ -1083,18 +1179,23 @@ document.addEventListener("input", ev=>{
   else if(id==="estText" && UI.sheet) UI.sheet.text=ev.target.value;
   else if(id==="tplName" && UI.tplDraft) UI.tplDraft.name=ev.target.value;
   else if(["qkK","qkP","qkC","qkF"].includes(id)) updateQuickHint();
+  else if(ev.target.dataset && ev.target.dataset.whog && UI.sheet){ UI.sheet.who[ev.target.dataset.whog]=ev.target.value; }
 });
 document.addEventListener("change", ev=>{
   if(ev.target.matches("[data-est]") && UI.sheet && UI.sheet.items){ UI.sheet.items[Number(ev.target.dataset.est)].on=ev.target.checked; }
   if(ev.target.id==="amtMeal" && UI.sheet) UI.sheet.meal=ev.target.value;
   if(ev.target.matches("[data-pl]")) savePlanForm();
-  if(ev.target.id==="trainChk"){ const d=clone(dayDoc(UI.date)); d.kind="day"; d.date=UI.date; d.train={on:ev.target.checked,time:(d.train&&d.train.time)||plan().pre.defaultTime}; writeDoc("day-"+UI.date,d);
+  if(ev.target.dataset && ev.target.dataset.who && UI.sheet){ const pid=ev.target.dataset.who, s=UI.sheet; s.who=s.who||{};
+    if(s.type==="quick"){ s.name=$("#qkName").value; s.kcal=$("#qkK").value; s.p=$("#qkP").value; s.c=$("#qkC").value; s.f=$("#qkF").value; const qm=$("#qkMeal"); if(qm) s.meal=qm.value; }
+    if(ev.target.checked){ const g=$("#amtG"); s.who[pid]= s.type==="amount" ? (g?g.value:"") : 1; } else delete s.who[pid];
+    renderSheet(); const inp=document.querySelector(`[data-whog="${pid}"]`); if(inp&&ev.target.checked) inp.focus(); }
+  if(ev.target.id==="trainChk"){ const d=clone(dayDoc(UI.date)); d.kind="day"; d.date=UI.date; d.train={on:ev.target.checked,time:(d.train&&d.train.time)||plan().pre.defaultTime}; writeDoc(pk("day-")+UI.date,d);
     if(ev.target.checked) toast(`Pre-workout lagt til, +${r0(plan().pre.extraKcal)} kcal i dag`); }
-  if(ev.target.id==="trainTime" && ev.target.value){ const d=clone(dayDoc(UI.date)); d.kind="day"; d.date=UI.date; d.train={on:true,time:ev.target.value}; writeDoc("day-"+UI.date,d);
-    const pr=clone(S.docs.profile||{kind:"profile"}); pr.kind="profile"; const pl=plan(); pl.pre.defaultTime=ev.target.value; pr.plan=pl; writeDoc("profile",pr); }
+  if(ev.target.id==="trainTime" && ev.target.value){ const d=clone(dayDoc(UI.date)); d.kind="day"; d.date=UI.date; d.train={on:true,time:ev.target.value}; writeDoc(pk("day-")+UI.date,d);
+    const pr=clone(S.docs[pk("profile")]||{kind:"profile"}); pr.kind="profile"; const pl=plan(); pl.pre.defaultTime=ev.target.value; pr.plan=pl; writeDoc(pk("profile"),pr); }
 });
 function savePlanForm(){
-  const pr=clone(S.docs.profile||{kind:"profile"}); pr.kind="profile"; const pl=plan(), wasOn=pl.reminders;
+  const pr=clone(S.docs[pk("profile")]||{kind:"profile"}); pr.kind="profile"; const pl=plan(), wasOn=pl.reminders;
   const el=id=>document.getElementById(id);
   if(el("plWake")&&el("plWake").value) pl.defaultWake=el("plWake").value;
   for(const [k] of MEALS){ if(k==="pre"||!el("plOn-"+k)) continue; pl.slots[k].on=el("plOn-"+k).checked;
@@ -1104,7 +1205,7 @@ function savePlanForm(){
   if(el("plTrain")&&el("plTrain").value) pl.pre.defaultTime=el("plTrain").value;
   if(el("plPreTpl")) pl.pre.tpl=el("plPreTpl").value;
   if(el("plRem")) pl.reminders=el("plRem").checked;
-  pr.plan=pl; writeDoc("profile",pr);
+  pr.plan=pl; writeDoc(pk("profile"),pr);
   if(pl.reminders&&!wasOn&&notifState()!=="granted"&&window.Android&&Android.requestNotifPermission) Android.requestNotifPermission();
 }
 document.addEventListener("keydown", ev=>{ if(ev.key==="Escape" && UI.sheet) closeSheet(); if(ev.key==="Enter" && ev.target.id==="bcIn") handleCode(ev.target.value); });
