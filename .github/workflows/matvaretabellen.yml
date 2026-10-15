@@ -1,0 +1,55 @@
+name: Hent Matvaretabellen
+
+# Henter Matvaretabellen fra Mattilsynet og lagrer en kompakt versjon som appen søker i.
+# Tabellen oppdateres årlig om høsten, så jobben kjører 1. november og kan kjøres manuelt.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 4 1 11 *"
+  push:
+    branches: [main]
+    paths: ['.github/workflows/matvaretabellen.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Last ned og komprimer
+        run: |
+          python3 - <<'PY'
+          import json, urllib.request, datetime
+          req = urllib.request.Request("https://www.matvaretabellen.no/api/nb/foods.json", headers={"User-Agent": "Makrologg"})
+          raw = json.load(urllib.request.urlopen(req, timeout=120))
+          foods = raw["foods"]
+          json.dump(foods[:2], open("data/mvt-sample.json", "w"), ensure_ascii=False, indent=1)
+          def num(x):
+              return None if x is None else round(float(x), 1)
+          out = []
+          for f in foods:
+              c = {x.get("nutrientId"): x.get("quantity") for x in f.get("constituents", [])}
+              kcal = (f.get("calories") or {}).get("quantity")
+              if kcal is None:
+                  continue
+              por = []
+              for p in (f.get("portions") or [])[:4]:
+                  por.append([p.get("portionName") or p.get("id"), num(p.get("quantity")), p.get("unit")])
+              out.append([f.get("foodName"), round(float(kcal)), num(c.get("Protein")) or 0, num(c.get("Fett")) or 0,
+                          num(c.get("Karbo")) or 0, por, f.get("searchKeywords") or [], f.get("foodId")])
+          data = {"v": datetime.date.today().isoformat(), "source": "Matvaretabellen (Mattilsynet)", "foods": out}
+          json.dump(data, open("app/src/main/assets/matvaretabellen.json", "w"), ensure_ascii=False, separators=(",", ":"))
+          print(len(out), "matvarer")
+          PY
+
+      - name: Lagre i repoet
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/assets/matvaretabellen.json data/mvt-sample.json
+          git diff --cached --quiet && { echo "Ingen endringer"; exit 0; }
+          git commit -m "Oppdater Matvaretabellen"
+          git push
