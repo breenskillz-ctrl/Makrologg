@@ -1,4 +1,4 @@
-<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="9"><title>Makrologg</title>
+<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="10"><title>Makrologg</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
 <style>
@@ -372,7 +372,7 @@ window.onReminderOpen = (slot, day) => { if(String(slot).includes("|")){ const [
   UI.tab="dag"; if(day) UI.date=day; render(); openSlot(slot, day||UI.date); };
 function openSlot(slot,k){ const sl=daySchedule(k).find(x=>x.meal===slot); openSheet({type:"slot",slot,day:k,at:sl?sl.at:null,tpl:sl?sl.tpl:""}); }
 
-function initStore(){ S.docs=lsLoad(); syncActive(); S.ready=true; UI.date=todayKey(); UI.lastToday=UI.date; render(); reschedule(); }
+function initStore(){ loadMvt(); S.docs=lsLoad(); syncActive(); S.ready=true; UI.date=todayKey(); UI.lastToday=UI.date; render(); reschedule(); }
 document.addEventListener("visibilitychange",()=>{ if(document.hidden||!S.ready) return;
   const t=todayKey(); if(UI.lastToday!==t){ if(UI.date===UI.lastToday) UI.date=t; UI.lastToday=t; } render(); reschedule(); });
 
@@ -712,9 +712,100 @@ function renderSheet(){
   updateAmountPreview(); updateGoalSum(); updateQuickHint();
 }
 
+/* ---------- Matvaretabellen (Mattilsynet), cached on the phone ---------- */
+const MVT={foods:null,v:null};
+const MVT_URL="https://raw.githubusercontent.com/breenskillz-ctrl/Makrologg/main/app/src/main/assets/matvaretabellen.json";
+const PORTION_NAMES={stk:"1 stk",skive:"1 skive",porsjon:"1 porsjon",desiliter:"1 dl",spiseskje:"1 ss",teskje:"1 ts",glass:"1 glass",boks:"1 boks",pakke:"1 pakke",beger:"1 beger"};
+const PORTION_ORDER=["stk","skive","porsjon","beger","boks","pakke","glass","spiseskje","teskje","desiliter"];
+function mvtFromRaw(d){
+  return (d.foods||[]).map(r=>{
+    const portions=(r[5]||[]).filter(x=>x[2]==="g"&&x[1]>0)
+      .sort((a,b)=>{ const ia=PORTION_ORDER.indexOf(a[0]), ib=PORTION_ORDER.indexOf(b[0]); return (ia<0?5:ia)-(ib<0?5:ib); })
+      .map(x=>({label:PORTION_NAMES[x[0]]||("1 "+x[0]),g:x[1]}));
+    return {id:"mvt:"+r[7],name:r[0],per:{kcal:r[1],p:r[2],f:r[3],c:r[4]},portions,portion:portions[0]||null,kw:(r[6]||[]).join(" ").toLowerCase(),base:true,src:"mvt"};
+  });
+}
+function loadMvt(){
+  try{ const c=JSON.parse(localStorage.getItem("makrologg.mvt")||"null"); if(c&&c.foods){ MVT.foods=mvtFromRaw(c); MVT.v=c.v; } }catch(e){}
+  let last=0; try{ last=Number(localStorage.getItem("makrologg.mvt.checked")||0); }catch(e){}
+  if(MVT.foods && Date.now()-last<7*864e5) return;
+  httpJson(MVT_URL).then(r=>{
+    if(r.status!==200||!r.json||!r.json.foods) return;
+    if(r.json.v!==MVT.v){ try{ localStorage.setItem("makrologg.mvt",JSON.stringify(r.json)); }catch(e){}
+      MVT.foods=mvtFromRaw(r.json); MVT.v=r.json.v; if(UI.sheet&&UI.sheet.type==="pick") renderSheet(); }
+    try{ localStorage.setItem("makrologg.mvt.checked",String(Date.now())); }catch(e){}
+  }).catch(()=>{});
+}
 function allFoods(){
   const mine=Object.values(foodsDoc().items||{});
-  return mine.concat(BASE);
+  return mine.concat(MVT.foods||BASE);
+}
+const norm = x => String(x||"").toLowerCase();
+function rankFoods(list,q){
+  const qq=norm(q).trim(), toks=qq.split(/[\s,]+/).filter(Boolean); if(!toks.length) return [];
+  const out=[];
+  for(const f of list){
+    const n=norm(f.name), words=n.split(/[^a-zæøåäöü0-9%]+/).filter(Boolean), kw=f.kw||"";
+    let score=0, ok=true;
+    for(const t of toks){
+      if(words.some(w=>w.startsWith(t))) score+=10;
+      else if(kw.split(" ").some(w=>w.startsWith(t))) score+=5;
+      else if(n.includes(t)||(f.barcode||"").startsWith(t)) score+=2;
+      else { ok=false; break; }
+    }
+    if(!ok) continue;
+    if(n.startsWith(qq)) score+=30;
+    if(words[0]&&words[0].startsWith(toks[0])) score+=15;
+    if(words[0]===toks[0]) score+=14;
+    if(!f.base) score+=12;
+    if(/barnemat|morsmelkerstatning|sondemat|kosttilskudd/.test(n)) score-=30;
+    score-=n.length*0.15;
+    out.push([score,f]);
+  }
+  return out.sort((a,b)=>b[0]-a[0]).map(x=>x[1]);
+}
+
+/* ---------- online search: Kassalapp (Norwegian shops) and Open Food Facts ---------- */
+let onlineT=null;
+function queueOnline(s){
+  clearTimeout(onlineT);
+  const q=norm(s.q).trim(); if(q.length<3) return;
+  onlineT=setTimeout(()=>runOnline(s,q),450);
+}
+function runOnline(s,q){
+  s.online=s.online||{}; if(s.online[q]) return;
+  const o=s.online[q]={};
+  const done=()=>{ if(UI.sheet===s && norm(s.q).trim()===q) renderSheet(); };
+  const key=kassalKey();
+  if(key){ o.kas={busy:true}; kassalSearch(q,key).then(r=>{ o.kas={res:r}; }).catch(e=>{ o.kas={err:e&&e.message==="auth"?"Kassalapp-nøkkelen ble avvist. Sjekk den under «Mål og vekt».":"Fikk ikke kontakt med Kassalapp."}; }).finally(done); }
+  o.off={busy:true}; offSearch(q).then(r=>{ o.off={res:r}; }).catch(()=>{ o.off={err:"Fikk ikke kontakt med Open Food Facts."}; }).finally(done);
+  done();
+}
+async function kassalSearch(q,key){
+  const r=await httpJson(`https://kassal.app/api/v1/products?search=${encodeURIComponent(q)}&size=40&unique=1`,{Authorization:"Bearer "+key,Accept:"application/json"});
+  if(r.status===401||r.status===403) throw new Error("auth");
+  if(r.status!==200||!r.json) throw new Error("http "+r.status);
+  const seen=new Set(), out=[];
+  for(const p of (r.json.data||[])){
+    const nut={}; (p.nutrition||[]).forEach(n=>{ if(n&&n.code) nut[n.code]=Number(n.amount); });
+    let kcal=nut.energi_kcal; if(!isFinite(kcal)&&isFinite(nut.energi_kj)) kcal=nut.energi_kj/4.184;
+    if(!isFinite(kcal)) continue;
+    const brand=p.brand||p.vendor||"";
+    const name=[p.name||"", brand&&!(p.name||"").toLowerCase().includes(brand.toLowerCase())?brand:""].filter(Boolean).join(" – ");
+    const k=name.toLowerCase(); if(!name||seen.has(k)) continue; seen.add(k);
+    const w=Number(p.weight), unit=String(p.weight_unit||"").toLowerCase();
+    out.push({name,per:{kcal,p:nut.protein||0,f:nut.fett_totalt||0,c:nut.karbohydrater||0},
+      portion: w>0&&w<=1500&&(unit==="g"||unit==="ml") ? {label:"1 pakke",g:w} : null, barcode:p.ean||null, source:"Kassalapp"});
+    if(out.length>=20) break;
+  }
+  return out;
+}
+function onlineSection(s,q,key,label){
+  const st=((s.online||{})[q]||{})[key]; if(!st) return "";
+  if(st.busy) return `<div class="sect">${label}</div><div class="busy"><div class="spin"></div>Søker …</div>`;
+  if(st.err) return `<div class="sect">${label}</div><div class="note err">${esc(st.err)}</div>`;
+  if(!st.res.length) return "";
+  return `<div class="sect">${label}</div><div class="list">${st.res.map((f,i)=>`<button data-act="pickOnline" data-v="${key}:${i}"><span class="nm">${esc(f.name)}<br><small class="num">${r0(f.per.kcal)} kcal · P ${fmt1(f.per.p)} · K ${fmt1(f.per.c)} · F ${fmt1(f.per.f)} per 100 g</small></span></button>`).join("")}</div>`;
 }
 function recentFoods(){
   const seen=new Set(), out=[];
@@ -727,7 +818,7 @@ function foodRow(f,act){ return `<button data-act="${act}" data-v="${esc(f.id)}"
 function sheetPick(s){
   const q=(s.q||"").trim().toLowerCase();
   let list;
-  if(q){ list=allFoods().filter(f=>f.name.toLowerCase().includes(q)||(f.barcode||"").includes(q)).slice(0,40); }
+  if(q){ list=rankFoods(allFoods(),q); }
   const ai=!!SAMPLE && s.meal!=="tpl";
   let h=`<div class="tools">
     <button class="tool" data-act="scan">${ICON.scan}<span>Skann strekkode<small>Henter næringsinnhold</small></span></button>
@@ -736,12 +827,18 @@ function sheetPick(s){
     ${ai?`<button class="tool" data-act="estimate">${ICON.spark}<span>Beskriv måltid<small>Tekst eller bilde, Claude anslår</small></span></button>`:""}
     <button class="tool" data-act="newProduct">${ICON.pen}<span>Ny matvare<small>Fyll inn selv</small></span></button></div>
     <input class="inp" id="q" type="search" placeholder="Søk i matvarer" value="${esc(s.q||"")}" autocomplete="off">`;
-  if(q){ h+= list.length?`<div class="list">${list.map(f=>foodRow(f,"pickFood")).join("")}</div>`:`<div class="note">Ingen treff blant dine og de vanlige matvarene.</div>`;
-    if(s.offQ===q && s.offBusy) h+=`<div class="busy"><div class="spin"></div>Søker i Open Food Facts …</div>`;
-    else if(s.offQ===q && s.offRes) h+= s.offRes.length?`<div class="sect">Open Food Facts</div><div class="list">${s.offRes.map((f,i)=>`<button data-act="pickOff" data-v="${i}"><span class="nm">${esc(f.name)}<br><small class="num">${r0(f.per.kcal)} kcal · P ${fmt1(f.per.p)} · K ${fmt1(f.per.c)} · F ${fmt1(f.per.f)} per 100 g</small></span></button>`).join("")}</div>`:`<div class="note">Ingen treff i Open Food Facts heller.</div>`;
-    else if(s.offQ===q && s.offErr) h+=`<div class="note err">Fikk ikke kontakt med Open Food Facts. Sjekk nettet.</div>`;
-    else h+=`<button class="btn ghost block" data-act="offSearch">Søk etter «${esc(s.q)}» i Open Food Facts</button>`;
-    h+=`<button class="btn ghost block" data-act="newProduct" data-name="${esc(s.q)}">Legg inn «${esc(s.q)}» selv</button>`; }
+  if(q){
+    const mine=list.filter(f=>!f.base).slice(0,6), genAll=list.filter(f=>f.base), more=s.moreQ===q, gen=genAll.slice(0,more?40:8);
+    if(mine.length) h+=`<div class="sect">Mine matvarer</div><div class="list">${mine.map(f=>foodRow(f,"pickFood")).join("")}</div>`;
+    if(gen.length) h+=`<div class="sect">${MVT.foods?"Matvaretabellen":"Vanlige matvarer"}</div><div class="list">${gen.map(f=>foodRow(f,"pickFood")).join("")}</div>`;
+    if(genAll.length>gen.length) h+=`<button class="btn ghost block" data-act="moreMvt">Vis flere (${Math.min(genAll.length,40)-gen.length} til)</button>`;
+    if(!mine.length&&!gen.length) h+=`<div class="note">Ingen treff blant vanlige matvarer.</div>`;
+    h+=onlineSection(s,q,"kas","Fra norske butikker");
+    h+=onlineSection(s,q,"off","Open Food Facts");
+    if(q.length<3) h+=`<div class="note">Skriv minst tre bokstaver for å søke i butikkvarer.</div>`;
+    else if(!kassalKey()) h+=`<div class="note">Legg inn en gratis Kassalapp-nøkkel under «Mål og vekt», så søker appen også i varer fra norske butikker.</div>`;
+    h+=`<button class="btn ghost block" data-act="newProduct" data-name="${esc(s.q)}">Legg inn «${esc(s.q)}» selv</button>`;
+    if(MVT.foods&&gen.length) h+=`<div class="note">Kilde for generelle matvarer: Matvaretabellen, Mattilsynet.</div>`; }
   else { const tpls=Object.values(mealsDoc().items||{});
     if(tpls.length && s.meal!=="tpl") h+=`<div class="sect">Faste måltider</div><div class="list">${tpls.map(t=>`<button data-act="logTpl" data-v="${t.id}"><span class="nm">${esc(t.name)}<br><small class="num">${t.items.length} ting · ${r0(tplTotals(t).kcal)} kcal</small></span></button>`).join("")}</div>`;
     const rec=recentFoods(); if(rec.length) h+=`<div class="sect">Nylig brukt</div><div class="list">${rec.map(f=>foodRow(f,"pickRecent")).join("")}</div>`;
@@ -752,7 +849,7 @@ function sheetPick(s){
 function sheetAmount(s){
   const f=s.food;
   const portions=[];
-  if(f.portion) portions.push(f.portion);
+  (f.portions&&f.portions.length?f.portions:(f.portion?[f.portion]:[])).slice(0,3).forEach(x=>portions.push(x));
   portions.push({label:"100 g",g:100});
   if(s.lastG && !portions.some(p=>p.g===s.lastG)) portions.unshift({label:"Sist: "+r0(s.lastG)+" g",g:s.lastG});
   return `<div><div style="font-weight:600;font-size:17px">${esc(f.name)}</div><div class="note num">${r0(f.per.kcal)} kcal · P ${fmt1(f.per.p)} · K ${fmt1(f.per.c)} · F ${fmt1(f.per.f)} per 100 g</div></div>
@@ -964,8 +1061,8 @@ async function offLookup(code){
 }
 async function offSearch(q){
   const ctl=new AbortController(); const t=setTimeout(()=>ctl.abort(),15000);
-  try{ const r=await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&json=1&page_size=25&fields=${OFF_FIELDS}`,{signal:ctl.signal});
-    const j=await r.json(); return (j.products||[]).map(p=>offToProduct(p,p.code)).filter(Boolean);
+  try{ const r=await httpJson(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=20&tagtype_0=countries&tag_contains_0=contains&tag_0=norway&fields=${OFF_FIELDS}`);
+    if(r.status!==200||!r.json) throw new Error("http"); const j=r.json; return (j.products||[]).map(p=>offToProduct(p,p.code)).filter(Boolean).slice(0,15);
   } finally { clearTimeout(t); }
 }
 function saveProduct(prod){
@@ -1089,8 +1186,9 @@ document.addEventListener("click", async ev=>{
   else if(a==="candWrong"){ const c=UI.sheet.cand; openSheet({type:"product",meal:UI.sheet.meal,p:{barcode:c.barcode||UI.sheet.code||""},msg:"Fyll inn navn og verdier fra etiketten (per 100 g). Appen husker varen neste gang du skanner den."}); }
   else if(a==="saveKey"){ const st=clone(S.docs.settings||{kind:"settings"}); st.kind="settings"; st.kassalKey=$("#kKey").value.trim(); writeDoc("settings",st); toast(st.kassalKey?"Nøkkelen er lagret":"Nøkkelen er fjernet"); }
   else if(a==="newFromCode"){ openSheet({type:"product",meal:UI.sheet.meal,p:{barcode:UI.sheet.offline}}); }
-  else if(a==="offSearch"){ const s=UI.sheet, q=(s.q||"").trim().toLowerCase(); s.offQ=q; s.offBusy=true; s.offRes=null; s.offErr=false; renderSheet();
-    offSearch(q).then(r=>{ s.offRes=r; }).catch(()=>{ s.offErr=true; }).finally(()=>{ s.offBusy=false; if(UI.sheet===s) renderSheet(); }); }
+  else if(a==="moreMvt"){ UI.sheet.moreQ=norm(UI.sheet.q).trim(); renderSheet(); }
+  else if(a==="pickOnline"){ const [k,i]=v.split(":"), st=((UI.sheet.online||{})[norm(UI.sheet.q).trim()]||{})[k]; const f=st&&st.res&&st.res[Number(i)];
+    if(f){ const prod=saveProduct(f); openAmount(prod, UI.sheet.meal); } }
   else if(a==="pickOff"){ const f=UI.sheet.offRes[Number(v)]; if(f){ const prod=saveProduct(f); openAmount(prod, UI.sheet.meal); } }
   else if(a==="wakeNow"){ setWake(Math.round(Date.now()/300000)*300000); }
   else if(a==="wakeAt"){ setWake(wakeFromClock(v)); }
@@ -1172,7 +1270,7 @@ Svar KUN med JSON: {"items":[{"name":"kort norsk navn","grams":tall,"kcal":tall,
 
 document.addEventListener("input", ev=>{
   const id=ev.target.id;
-  if(id==="q" && UI.sheet){ UI.sheet.q=ev.target.value; renderSheet(); }
+  if(id==="q" && UI.sheet){ UI.sheet.q=ev.target.value; renderSheet(); queueOnline(UI.sheet); }
   else if(id==="amtG"){ UI.sheet.g=ev.target.value; updateAmountPreview(); }
   else if(id==="amtMeal"){ UI.sheet.meal=ev.target.value; }
   else if(["gk","gp","gc","gf"].includes(id)) updateGoalSum();
