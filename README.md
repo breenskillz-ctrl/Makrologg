@@ -31,3 +31,10 @@ Mister du nøkkelen, kan nye versjoner ikke installeres over den gamle. Ta vare 
   da «Ny versjon er klar» med en knapp som laster ned og installerer.
 
 Repoet må være offentlig for at appen skal finne oppdateringene.
+
+## Synk til Google Sheets (coach)
+
+Under «Mål og vekt» → «Coach (Google Sheets)» kan appen sende dager, vekt og Garmin-tall
+for alle personer til et Google-regneark. Mottakeren er et Apps Script i `data/coach/Kode.gs`
+(oppsettet står øverst i filen). Bare endrede poster sendes, via `httpJson`, og hva som er
+sendt huskes i localStorage under `makrologg.sync`.

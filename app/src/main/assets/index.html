@@ -1,4 +1,4 @@
-<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="10"><title>Makrologg</title>
+<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="11"><title>Makrologg</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
 <style>
@@ -252,7 +252,7 @@ function lsLoad(){ try{ return JSON.parse(localStorage.getItem(LSKEY)||"{}"); }c
 function lsSave(){ try{ localStorage.setItem(LSKEY, JSON.stringify(S.docs)); }catch(e){} }
 const queues = {};
 function writeDoc(id, data){
-  S.docs[id] = data; renderSoon(); reschedule();
+  S.docs[id] = data; renderSoon(); reschedule(); syncSoon();
   if(S.mode!=="db"){ lsSave(); return; }
   const ref = S.db.doc("data/users/"+S.uidv+"/"+id);
   queues[id] = (queues[id]||Promise.resolve()).then(()=>ref.set(data)).catch(e=>{
@@ -261,7 +261,7 @@ function writeDoc(id, data){
   });
 }
 function delDoc(id){
-  delete S.docs[id]; renderSoon();
+  delete S.docs[id]; renderSoon(); syncSoon();
   if(S.mode!=="db"){ lsSave(); return; }
   const ref=S.db.doc("data/users/"+S.uidv+"/"+id);
   queues[id]=(queues[id]||Promise.resolve()).then(()=>ref.delete()).catch(()=>{});
@@ -279,7 +279,7 @@ const personOf = id => people().list.find(x=>x.id===id) || {id,name:"",color:0};
 const pcolor = p => PCOLORS[(p.color||0)%PCOLORS.length];
 function syncActive(){ const p=people(); CUR = p.list.some(x=>x.id===p.active) ? p.active : p.list[0].id; }
 function withPerson(pid,fn){ const o=CUR; CUR=pid; try{ return fn(); } finally{ CUR=o; } }
-function personKeys(pid){ return Object.keys(S.docs).filter(k=> pid==="p0" ? (k==="profile"||k==="weights"||k==="wake"||k.startsWith("day-")) : k.startsWith(pid+":")); }
+function personKeys(pid){ return Object.keys(S.docs).filter(k=> pid==="p0" ? (k==="profile"||k==="weights"||k==="morning"||k==="wake"||k.startsWith("day-")) : k.startsWith(pid+":")); }
 function setActive(pid){ const p=clone(people()); p.kind="people"; p.active=pid; CUR=pid;
   const wasToday = UI.date===UI.lastToday; UI.lastToday=todayKey(); if(wasToday) UI.date=UI.lastToday;
   UI.wakeEdit=false; UI.openMeals={}; writeDoc("people",p); }
@@ -372,9 +372,66 @@ window.onReminderOpen = (slot, day) => { if(String(slot).includes("|")){ const [
   UI.tab="dag"; if(day) UI.date=day; render(); openSlot(slot, day||UI.date); };
 function openSlot(slot,k){ const sl=daySchedule(k).find(x=>x.meal===slot); openSheet({type:"slot",slot,day:k,at:sl?sl.at:null,tpl:sl?sl.tpl:""}); }
 
-function initStore(){ loadMvt(); S.docs=lsLoad(); syncActive(); S.ready=true; UI.date=todayKey(); UI.lastToday=UI.date; render(); reschedule(); }
+function initStore(){ loadMvt(); S.docs=lsLoad(); syncActive(); S.ready=true; UI.date=todayKey(); UI.lastToday=UI.date; render(); reschedule(); syncSoon(3000); }
 document.addEventListener("visibilitychange",()=>{ if(document.hidden||!S.ready) return;
-  const t=todayKey(); if(UI.lastToday!==t){ if(UI.date===UI.lastToday) UI.date=t; UI.lastToday=t; } render(); reschedule(); });
+  const t=todayKey(); if(UI.lastToday!==t){ if(UI.date===UI.lastToday) UI.date=t; UI.lastToday=t; } render(); reschedule(); syncSoon(3000); });
+
+/* ---------- Google Sheets-synk: sender dager, vekt og Garmin-tall til et regneark som coachen leser ----------
+   Hver post sendes som GET til en Google Apps Script-nettapp (se data/coach/Kode.gs) via httpJson.
+   Bare poster som er endret siden sist sendes; fingeravtrykk ligger i localStorage under SYNC_LS. */
+const SYNC_LS="makrologg.sync";
+const SY={busy:false,t:null,err:null,left:0};
+function syncState(){ try{ const s=JSON.parse(localStorage.getItem(SYNC_LS)||"{}"); s.sent=s.sent||{}; return s; }catch(e){ return {sent:{}}; } }
+function syncSave(st){ try{ localStorage.setItem(SYNC_LS,JSON.stringify(st)); }catch(e){} }
+const sheetUrl = () => String((S.docs.settings||{}).sheetUrl||"").trim();
+function syncSoon(ms=5000){ if(!S.ready||!sheetUrl()) return; clearTimeout(SY.t); SY.t=setTimeout(runSync,ms); }
+const morningDoc = () => S.docs[pk("morning")] || {kind:"morning",items:{}};
+function syncRecords(){
+  const out=[];
+  for(const p of people().list) withPerson(p.id,()=>{
+    const base={pid:p.id,person:p.name||p.id}, pre=pk("day-");
+    for(const k of Object.keys(S.docs)){
+      if(!k.startsWith(pre)) continue;
+      const date=k.slice(pre.length); if(!/^\d{4}-\d\d-\d\d$/.test(date)) continue;
+      const d=S.docs[k]||{}, es=d.entries||[];
+      const t=es.reduce((a,e)=>{ a.kcal+=e.kcal||0; a.p+=e.p||0; a.f+=e.f||0; a.c+=e.c||0; return a; },{kcal:0,p:0,f:0,c:0});
+      const g=goalsFor(date), known=MEALS.map(m=>m[0]);
+      const groups=MEALS.map(([mk,ml])=>[ml,es.filter(e=>e.meal===mk)]).concat([["Annet",es.filter(e=>!known.includes(e.meal))]]);
+      const food=groups.filter(x=>x[1].length).map(([ml,xs])=>ml+": "+xs.map(e=>`${e.name}${e.quick?"":" "+r0(e.g)+" g"} (${r0(e.kcal)} kcal, ${r0(e.p)} g P)`).join(", ")).join(" | ");
+      out.push(Object.assign({t:"day",date,kcal:r0(t.kcal),p:r0(t.p),c:r0(t.c),f:r0(t.f),water:d.water||0,
+        train:isTraining(date)?((d.train&&d.train.time)||plan().pre.defaultTime):"",wake:d.wake&&d.wake.at?hhmm(d.wake.at):"",
+        gk:r0(g.kcal),gp:r0(g.p),gc:r0(g.c),gf:r0(g.f),n:es.length,food:food.length>3000?food.slice(0,3000)+" …":food},base));
+    }
+    for(const [date,kg] of Object.entries(weightsDoc().items||{})) out.push(Object.assign({t:"weight",date,kg},base));
+    for(const [date,m] of Object.entries(morningDoc().items||{})) out.push(Object.assign({t:"morning",date},m,base));
+  });
+  return out.sort((a,b)=>a.date<b.date?1:-1);       /* nyeste først */
+}
+const recKey = r => r.t+"|"+r.pid+"|"+r.date;
+function syncPending(){ const st=syncState(); return syncRecords().filter(r=>st.sent[recKey(r)]!==hashId(JSON.stringify(r))); }
+async function runSync(){
+  const url=sheetUrl(); if(!url||SY.busy) return;
+  SY.busy=true; SY.err=null; showSync();
+  const st=syncState(), todo=syncPending().slice(0,40);
+  try{
+    for(const r of todo){
+      const res=await httpJson(url+(url.includes("?")?"&":"?")+"d="+encodeURIComponent(JSON.stringify(r)));
+      if(res.status!==200||!res.json||!res.json.ok) throw new Error(res.json&&res.json.error ? res.json.error : "svar "+res.status);
+      st.sent[recKey(r)]=hashId(JSON.stringify(r)); st.last=Date.now(); syncSave(st);
+    }
+  }catch(e){ SY.err = e&&e.message==="net"||e&&e.message==="timeout" ? "Ingen nettforbindelse" : (e&&e.message)||"Ukjent feil"; }
+  SY.busy=false; SY.left=syncPending().length; showSync();
+  if(!SY.err && SY.left) syncSoon(1000);
+  else if(SY.err) syncSoon(10*60e3);                /* prøv igjen om 10 min */
+}
+function syncStatusText(){
+  if(!sheetUrl()) return "Ikke koblet til.";
+  if(SY.busy) return "Sender …";
+  const st=syncState(), last=st.last?`Sist sendt ${dateLabel(keyOf(new Date(st.last))).toLowerCase()} kl. ${hhmm(st.last)}.`:"Ikke sendt ennå.";
+  if(SY.err) return `Feil: ${SY.err}. ${last} Prøver igjen senere.`;
+  const n=syncPending().length; return last+(n?` ${n} venter.`:" Alt er sendt.");
+}
+function showSync(){ const el=$("#syncStatus"); if(el) el.textContent=syncStatusText(); }
 
 /* ---------- Claude (sample) ---------- */
 let SAMPLE=null;
@@ -641,6 +698,7 @@ function viewGoals(){
     wchart=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;margin-top:8px" role="img" aria-label="Vektutvikling"><path d="${path} L${last[0]} ${H} L${pts[0][0]} ${H}Z" fill="var(--accent-soft)"/><path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2"/><circle cx="${last[0]}" cy="${last[1]}" r="4" fill="var(--accent)"/></svg>`;
   }
   const lastW = ws.length? ws[ws.length-1][1] : prof.weight||"";
+  const gm = (morningDoc().items||{})[todayKey()] || {};
   const pl=people().list;
   return `<div class="sect">Personer</div><section class="card" style="display:flex;flex-direction:column;gap:10px">
     <div class="list plist">${pl.map(p=>`<button data-act="editPerson" data-v="${p.id}"><span class="nm"><span class="dot" style="background:${pcolor(p)}"></span>${esc(p.name)}${p.id===CUR?'<span class="tag">valgt</span>':""}</span><small>Endre</small></button>`).join("")}</div>
@@ -671,6 +729,21 @@ function viewGoals(){
     <div class="row"><input class="inp num" id="wIn" inputmode="decimal" placeholder="kg" style="flex:1;min-width:0" value=""><button class="btn primary" data-act="logWeight">Logg i dag</button></div>
     ${ws.length?`<div class="note num" style="margin-top:8px">Siste: ${fmt1(ws[ws.length-1][1])} kg (${dateLabel(ws[ws.length-1][0])})${ws.length>1?` · endring ${(ws[ws.length-1][1]-ws[0][1]>0?"+":"")+fmt1(ws[ws.length-1][1]-ws[0][1])} kg siden ${dateLabel(ws[0][0])}`:""}</div>`:`<div class="note" style="margin-top:8px">Logg vekten en gang i uka, gjerne om morgenen.</div>`}
     ${wchart}</section>
+    <div class="sect">Garmin i dag</div><section class="card" style="display:flex;flex-direction:column;gap:10px">
+    <div class="grid2"><div class="field"><label for="gmSleep">Søvnscore</label><input class="inp num" id="gmSleep" inputmode="numeric" value="${esc(gm.sleep??"")}" placeholder="0–100"></div>
+    <div class="field"><label for="gmBb">Body battery (morgen)</label><input class="inp num" id="gmBb" inputmode="numeric" value="${esc(gm.bb??"")}" placeholder="0–100"></div>
+    <div class="field"><label for="gmRhr">Hvilepuls</label><input class="inp num" id="gmRhr" inputmode="numeric" value="${esc(gm.rhr??"")}" placeholder="slag/min"></div>
+    <div class="field"><label for="gmHrv">HRV (natt)</label><input class="inp num" id="gmHrv" inputmode="numeric" value="${esc(gm.hrv??"")}" placeholder="ms"></div>
+    <div class="field"><label for="gmSleepH">Søvn (timer)</label><input class="inp num" id="gmSleepH" inputmode="decimal" value="${esc(gm.sleepH!=null?fmt1(gm.sleepH):"")}" placeholder="7,5"></div>
+    <div class="field"><label for="gmStress">Stress (snitt)</label><input class="inp num" id="gmStress" inputmode="numeric" value="${esc(gm.stress??"")}" placeholder="0–100"></div></div>
+    <div class="field"><label for="gmNote">Notat</label><input class="inp" id="gmNote" value="${esc(gm.note||"")}" placeholder="Energi, sårhet, sult …"></div>
+    <button class="btn primary block" data-act="logGarmin">Lagre for i dag</button></section>
+    <div class="sect">Coach (Google Sheets)</div><section class="card" style="display:flex;flex-direction:column;gap:10px">
+    <div class="note">Sender mat, vekt og Garmin-tall for alle personer til regnearket ditt, så Claude kan følge med. Lim inn nettapp-adressen fra Apps Script (slutter på /exec).</div>
+    <div class="field"><label for="sheetUrl">Nettapp-adresse</label><input class="inp" id="sheetUrl" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(sheetUrl())}" placeholder="https://script.google.com/macros/s/…/exec"></div>
+    <button class="btn primary block" data-act="saveSheet">Lagre og send</button>
+    <div class="note num" id="syncStatus">${esc(syncStatusText())}</div>
+    ${sheetUrl()?`<div class="row"><button class="btn ghost" style="flex:1" data-act="syncNow">Send nå</button><button class="btn ghost" style="flex:1" data-act="syncAll">Send alt på nytt</button></div>`:""}</section>
     <div class="sect">Strekkoder</div><section class="card" style="display:flex;flex-direction:column;gap:10px">
     <div class="note">Kassalapp har næringsinnhold for varene i norske dagligvarebutikker. Lag en gratis konto på kassal.app, gå til API under profilen din, lag en nøkkel og lim den inn her.</div>
     <div class="field"><label for="kKey">Kassalapp API-nøkkel</label><input class="inp" id="kKey" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(kassalKey())}" placeholder="Lim inn nøkkelen"></div>
@@ -1184,6 +1257,19 @@ document.addEventListener("click", async ev=>{
   else if(a==="candOk"){ const prod=saveProduct(UI.sheet.cand); openAmount(prod, UI.sheet.meal); }
   else if(a==="candEdit"){ const c=UI.sheet.cand; openSheet({type:"product",meal:UI.sheet.meal,p:{name:c.name,kcal:r1(c.per.kcal),p:r1(c.per.p),c:r1(c.per.c),f:r1(c.per.f),porLabel:c.portion?.label||"",porG:c.portion?.g??"",barcode:c.barcode||""},msg:"Rett opp etter etiketten og lagre."}); }
   else if(a==="candWrong"){ const c=UI.sheet.cand; openSheet({type:"product",meal:UI.sheet.meal,p:{barcode:c.barcode||UI.sheet.code||""},msg:"Fyll inn navn og verdier fra etiketten (per 100 g). Appen husker varen neste gang du skanner den."}); }
+  else if(a==="saveSheet"){ const u=$("#sheetUrl").value.trim();
+    if(u && !/^https:\/\/script\.google(usercontent)?\.com\//.test(u)){ toast("Adressen skal starte med https://script.google.com/"); return; }
+    const st=clone(S.docs.settings||{kind:"settings"}); st.kind="settings"; st.sheetUrl=u; writeDoc("settings",st);
+    toast(u?"Lagret. Sender dataene …":"Koblingen er fjernet"); if(u) syncSoon(300); }
+  else if(a==="syncNow"){ syncSoon(0); }
+  else if(a==="syncAll"){ const st=syncState(); st.sent={}; syncSave(st); syncSoon(0); toast("Sender alt på nytt …"); }
+  else if(a==="logGarmin"){
+    const n=id=>{ const v=$("#"+id).value.trim(); return v===""?null:numIn(v); }, rec={};
+    [["sleep","gmSleep"],["bb","gmBb"],["rhr","gmRhr"],["hrv","gmHrv"],["sleepH","gmSleepH"],["stress","gmStress"]].forEach(([k,id])=>{ const v=n(id); if(v!=null) rec[k]=v; });
+    const note=$("#gmNote").value.trim(); if(note) rec.note=note;
+    const md=clone(morningDoc()); md.kind="morning"; md.items=md.items||{};
+    if(Object.keys(rec).length) md.items[todayKey()]=rec; else delete md.items[todayKey()];
+    writeDoc(pk("morning"),md); toast("Garmin-tallene er lagret"); }
   else if(a==="saveKey"){ const st=clone(S.docs.settings||{kind:"settings"}); st.kind="settings"; st.kassalKey=$("#kKey").value.trim(); writeDoc("settings",st); toast(st.kassalKey?"Nøkkelen er lagret":"Nøkkelen er fjernet"); }
   else if(a==="newFromCode"){ openSheet({type:"product",meal:UI.sheet.meal,p:{barcode:UI.sheet.offline}}); }
   else if(a==="moreMvt"){ UI.sheet.moreQ=norm(UI.sheet.q).trim(); renderSheet(); }
