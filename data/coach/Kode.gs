@@ -70,7 +70,7 @@ var TABS = {
         n[s[0]] = (n[s[0]] || 0) + 1;
         return [r.date, r.person, s[0], s[1], n[s[0]], s[2], s[3], s[4], s[5], s[6], s[7], s[8], s[9], r.unit || '', r.pid];
       });
-      if (rows.length) sh.getRange(sh.getLastRow() + 1, 1, rows.length, cols.length).setValues(rows);
+      if (rows.length) sh.getRange(sh.getLastRow() + 1, 1, rows.length, cols.length).setValues(rows.map(asText));
     }
   },
   morning: {
@@ -100,6 +100,20 @@ function sheetFor(tab) {
   return sh;
 }
 
+// Google Sheets kan gjøre «2026-10-16» om til en dato selv om kolonnen er tekst.
+// Sammenlign derfor alltid som ÅÅÅÅ-MM-DD, uansett om cellen er tekst eller dato.
+function dkey(x) {
+  if (x instanceof Date) return Utilities.formatDate(x, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  return String(x).trim().slice(0, 10);
+}
+
+// Skriver datoen som ren tekst, så den ikke tolkes
+function asText(row) {
+  row = row.slice();
+  row[0] = "'" + row[0];
+  return row;
+}
+
 // Removes every row for this date and person (used to replace a day's sets)
 function removeRows(sh, date, pid, pidCol) {
   var last = sh.getLastRow();
@@ -107,7 +121,7 @@ function removeRows(sh, date, pid, pidCol) {
   var dates = sh.getRange(2, 1, last - 1, 1).getValues();
   var pids = sh.getRange(2, pidCol, last - 1, 1).getValues();
   for (var i = dates.length - 1; i >= 0; i--) {
-    if (String(dates[i][0]) === date && String(pids[i][0]) === pid) sh.deleteRow(i + 2);
+    if (dkey(dates[i][0]) === date && String(pids[i][0]) === pid) sh.deleteRow(i + 2);
   }
 }
 
@@ -120,13 +134,13 @@ function upsert(tab, r) {
     var dates = sh.getRange(2, 1, last - 1, 1).getValues();
     var pids = sh.getRange(2, pidCol, last - 1, 1).getValues();
     for (var i = 0; i < dates.length; i++) {
-      if (String(dates[i][0]) === r.date && String(pids[i][0]) === r.pid) {
-        sh.getRange(i + 2, 1, 1, row.length).setValues([row]);
+      if (dkey(dates[i][0]) === r.date && String(pids[i][0]) === r.pid) {
+        sh.getRange(i + 2, 1, 1, row.length).setValues([asText(row)]);
         return 'oppdatert';
       }
     }
   }
-  sh.appendRow(row);
+  sh.appendRow(asText(row));
   return 'ny';
 }
 
@@ -157,5 +171,41 @@ function handle(text) {
     return out({ ok: true, result: result });
   } finally {
     lock.releaseLock();
+  }
+}
+
+/**
+ * Kjør én gang fra Apps Script (velg «ryddDuplikater» i lista øverst og trykk Kjør).
+ * Fjerner doble rader i Dager, Vekt, Garmin, Økter og Kroppsmål og beholder den nyeste
+ * for hver dato og person. I «Sett» fjernes helt like rader.
+ */
+function ryddDuplikater() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  ['Dager', 'Vekt', 'Garmin', 'Økter', 'Kroppsmål'].forEach(function (name) {
+    var sh = ss.getSheetByName(name);
+    if (!sh || sh.getLastRow() < 3) return;
+    var data = sh.getDataRange().getValues(), head = data[0], pidCol = head.indexOf('Person-ID');
+    var seen = {}, keep = [];
+    for (var i = data.length - 1; i >= 1; i--) {         // nyeste rader ligger nederst
+      var k = dkey(data[i][0]) + '|' + data[i][pidCol];
+      if (seen[k]) continue;
+      seen[k] = true;
+      var row = data[i].slice(); row[0] = dkey(row[0]); keep.unshift(asText(row));
+    }
+    keep.sort(function (a, b) { return a[0] < b[0] ? 1 : a[0] > b[0] ? -1 : 0; });
+    sh.getRange(2, 1, sh.getLastRow() - 1, head.length).clearContent();
+    sh.getRange(2, 1, keep.length, head.length).setValues(keep);
+  });
+  var st = ss.getSheetByName('Sett');
+  if (st && st.getLastRow() > 2) {
+    var d = st.getDataRange().getValues(), h = d[0], seen2 = {}, out2 = [];
+    for (var j = 1; j < d.length; j++) {
+      var r = d[j].slice(); r[0] = dkey(r[0]);
+      var key = JSON.stringify(r);
+      if (seen2[key]) continue;
+      seen2[key] = true; out2.push(asText(r));
+    }
+    st.getRange(2, 1, st.getLastRow() - 1, h.length).clearContent();
+    st.getRange(2, 1, out2.length, h.length).setValues(out2);
   }
 }
