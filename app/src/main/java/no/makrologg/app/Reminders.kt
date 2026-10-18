@@ -127,5 +127,6 @@ class ReminderReceiver : BroadcastReceiver() {
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(ctx: Context, intent: Intent) {
         Reminders.restore(ctx)
+        CoachSync.restore(ctx)
     }
 }

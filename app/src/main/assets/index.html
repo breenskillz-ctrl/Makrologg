@@ -1,4 +1,4 @@
-<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="11"><title>Makrologg</title>
+<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="12"><title>Makrologg</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
 <style>
@@ -373,7 +373,8 @@ window.onReminderOpen = (slot, day) => { if(String(slot).includes("|")){ const [
 function openSlot(slot,k){ const sl=daySchedule(k).find(x=>x.meal===slot); openSheet({type:"slot",slot,day:k,at:sl?sl.at:null,tpl:sl?sl.tpl:""}); }
 
 function initStore(){ loadMvt(); S.docs=lsLoad(); syncActive(); S.ready=true; UI.date=todayKey(); UI.lastToday=UI.date; render(); reschedule(); syncSoon(3000); }
-document.addEventListener("visibilitychange",()=>{ if(document.hidden||!S.ready) return;
+document.addEventListener("visibilitychange",()=>{ if(!S.ready) return;
+  if(document.hidden){ if(sheetUrl()&&syncPending().length){ queueNightSync(); clearTimeout(SY.t); runSync(); } return; }
   const t=todayKey(); if(UI.lastToday!==t){ if(UI.date===UI.lastToday) UI.date=t; UI.lastToday=t; } render(); reschedule(); syncSoon(3000); });
 
 /* ---------- Google Sheets-synk: sender dager, vekt og Garmin-tall til et regneark som coachen leser ----------
@@ -384,7 +385,18 @@ const SY={busy:false,t:null,err:null,left:0};
 function syncState(){ try{ const s=JSON.parse(localStorage.getItem(SYNC_LS)||"{}"); s.sent=s.sent||{}; return s; }catch(e){ return {sent:{}}; } }
 function syncSave(st){ try{ localStorage.setItem(SYNC_LS,JSON.stringify(st)); }catch(e){} }
 const sheetUrl = () => String((S.docs.settings||{}).sheetUrl||"").trim();
-function syncSoon(ms=5000){ if(!S.ready||!sheetUrl()) return; clearTimeout(SY.t); SY.t=setTimeout(runSync,ms); }
+function syncSoon(ms=5000){ if(!S.ready||!sheetUrl()) return; queueNightSync(); clearTimeout(SY.t); SY.t=setTimeout(runSync,ms); }
+/* Nightly send at 23:50: the Android side keeps the latest copy of today's and yesterday's records and sends
+   them itself, so food logged after the last successful sync still reaches the sheet even if the app was closed. */
+function queueNightSync(){
+  if(!(window.Android&&Android.queueCoachSync)) return;
+  const url=sheetUrl(); if(!url) return;
+  try{
+    const t=todayKey(), days=new Set([t, addDays(t,-1), keyOf(new Date())]);
+    const urls=syncRecords().filter(r=>days.has(r.date)).map(r=>url+(url.includes("?")?"&":"?")+"d="+encodeURIComponent(JSON.stringify(r)));
+    Android.queueCoachSync(JSON.stringify(urls));
+  }catch(e){}
+}
 const morningDoc = () => S.docs[pk("morning")] || {kind:"morning",items:{}};
 function syncRecords(){
   const out=[];

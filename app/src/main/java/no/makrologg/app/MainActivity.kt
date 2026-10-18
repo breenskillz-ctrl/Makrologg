@@ -28,7 +28,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         /** Raise when the bridge below gains features the web page depends on. */
-        const val NATIVE_API = 5
+        const val NATIVE_API = 6
         const val REPO = "breenskillz-ctrl/Makrologg"
         const val WEB_URL = "https://raw.githubusercontent.com/$REPO/main/app/src/main/assets/index.html"
         const val RELEASE_URL = "https://api.github.com/repos/$REPO/releases/latest"
@@ -344,6 +344,9 @@ class MainActivity : AppCompatActivity() {
 
         @JavascriptInterface
         fun scheduleReminders(json: String) = Reminders.replaceAll(this@MainActivity, json)
+
+        @JavascriptInterface
+        fun queueCoachSync(json: String) = CoachSync.queue(this@MainActivity, json)
 
         @JavascriptInterface
         fun notifPermission(): String = notifState()

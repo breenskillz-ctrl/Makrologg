@@ -38,3 +38,5 @@ Under «Mål og vekt» → «Coach (Google Sheets)» kan appen sende dager, vekt
 for alle personer til et Google-regneark. Mottakeren er et Apps Script i `data/coach/Kode.gs`
 (oppsettet står øverst i filen). Bare endrede poster sendes, via `httpJson`, og hva som er
 sendt huskes i localStorage under `makrologg.sync`.
+Appen sender også når den lukkes, og kl. 23.50 sender Android-delen (`CoachSync.kt`) siste versjon
+av i dag og i går på egen hånd, så hele dagen kommer med selv om appen ikke ble åpnet igjen.
