@@ -1,4 +1,4 @@
-<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="12"><title>Makrologg</title>
+<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="13"><title>Makrologg</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
 <style>
@@ -489,6 +489,13 @@ function render(){
   else m.innerHTML = pb + viewGoals();
 }
 
+/* the most recent earlier day (within a week) that has this meal logged */
+const WEEKDAYS=["søndag","mandag","tirsdag","onsdag","torsdag","fredag","lørdag"];
+function lastMeal(k, mk){
+  for(let i=1;i<=7;i++){ const k2=addDays(k,-i), es=(dayDoc(k2).entries||[]).filter(e=>e.meal===mk);
+    if(es.length) return {k:k2, es, kcal:es.reduce((a,e)=>a+e.kcal,0), label: i===1?"i går":WEEKDAYS[parseKey(k2).getDay()]}; }
+  return null;
+}
 function personBar(){
   if(!multi()) return "";
   return `<nav class="pbar" aria-label="Velg person">${people().list.map(p=>{
@@ -527,7 +534,9 @@ function viewDay(){
   for(const mk of keys){ const ml=meal(mk);
     const es=(d.entries||[]).filter(e=>e.meal===mk);
     const kc=es.reduce((a,e)=>a+e.kcal,0);
-    const yHas=(yday.entries||[]).some(e=>e.meal===mk);
+    const last=lastMeal(UI.date, mk);
+    const sameAlready = last && es.length && last.es.every(x=>es.some(e=>e.name===x.name));
+    const copyBtn = last && !sameAlready ? `<button class="btn ghost" data-act="copyY" data-v="${mk}" data-k="${last.k}">${es.length?"+ ":""}Samme som ${last.label} <span class="num">· ${r0(last.kcal)} kcal</span></button>` : "";
     const tp=at[mk]&&!es.length?tplById(at[mk].tpl):null;
     const open=!!(UI.openMeals&&UI.openMeals[mk]);
     const sm=es.reduce((a,e)=>{a.p+=e.p;a.c+=e.c;a.f+=e.f;return a;},{p:0,c:0,f:0});
@@ -535,8 +544,8 @@ function viewDay(){
       ${es.length&&!open?`<div class="msum num">${es.length} ${es.length===1?"ting":"ting"} · P ${r0(sm.p)} g · K ${r0(sm.c)} g · F ${r0(sm.f)} g</div>`:""}
       ${tp?`<div class="fixed">Fast: ${esc(tp.name)} · ${r0(tplTotals(tp).kcal)} kcal</div>`:""}
       ${es.length&&open?`<ul>${es.map(e=>`<li data-act="editEntry" data-v="${e.id}"><div class="nm"><div>${esc(e.name)}${e.est?'<span class="tag">anslag</span>':""}${e.quick?'<span class="tag">hurtig</span>':""}</div><small class="num">${e.quick?"":r0(e.g)+" g · "}P ${fmt1(e.p)} · K ${fmt1(e.c)} · F ${fmt1(e.f)}</small></div><div class="kc num">${r0(e.kcal)}</div></li>`).join("")}</ul>`:""}
-      <div class="mf">${tp?`<button class="btn primary" data-act="logSlotTpl" data-v="${mk}">Logg fast måltid</button><button class="btn ghost" data-act="add" data-v="${mk}">Noe annet</button>`
-        :`<button class="btn primary" data-act="add" data-v="${mk}">+ Legg til</button>${!es.length&&yHas?`<button class="btn ghost" data-act="copyY" data-v="${mk}">Samme som i går</button>`:""}`}${es.length?`<button class="btn ghost" data-act="saveAsTpl" data-v="${mk}">Lagre som fast</button>`:""}</div></section>`;
+      <div class="mf">${tp?`<button class="btn primary" data-act="logSlotTpl" data-v="${mk}">Logg fast måltid</button>${copyBtn}<button class="btn ghost" data-act="add" data-v="${mk}">Noe annet</button>`
+        :`<button class="btn primary" data-act="add" data-v="${mk}">+ Legg til</button>${copyBtn}`}${es.length?`<button class="btn ghost" data-act="saveAsTpl" data-v="${mk}">Lagre som fast</button>`:""}</div></section>`;
   }
   const w=d.water||0, wg=g.water||8;
   h += `<section class="card water"><div><div style="font-weight:600">Vann</div><div class="note num">${w} av ${wg} glass (2,5 dl)</div>
@@ -611,10 +620,12 @@ function sheetPerson(s){
      :`<button class="btn danger block" data-act="askDeletePerson">Slett person</button>`):""}`;
 }
 function whoRows(s){
-  if(!multi() || s.meal==="tpl" || s.entryId) return "";
+  if(!multi() || s.meal==="tpl") return "";
   const others=people().list.filter(p=>p.id!==CUR); s.who=s.who||{};
-  return `<div class="field"><span class="flabel">Logg også for</span><div class="whos">${others.map(p=>{ const on=s.who[p.id]!=null;
-    return `<div class="who"><label class="tgl"><input type="checkbox" data-who="${p.id}" ${on?"checked":""}><span class="dot" style="background:${pcolor(p)}"></span><span>${esc(p.name)}</span></label>
+  const nm = s.type==="amount" ? s.food.name : (s.name||"Hurtiglogg");
+  return `<div class="field"><span class="flabel">${s.entryId?"Legg også til for":"Logg også for"}</span><div class="whos">${others.map(p=>{ const on=s.who[p.id]!=null;
+    const has = withPerson(p.id, ()=> (dayDoc(UI.date).entries||[]).some(e=>e.meal===s.meal && e.name===nm));
+    return `<div class="who"><label class="tgl"><input type="checkbox" data-who="${p.id}" ${on?"checked":""}><span class="dot" style="background:${pcolor(p)}"></span><span>${esc(p.name)}${has?' <small class="note">har allerede dette</small>':""}</span></label>
       ${s.type==="amount"?`<input class="inp num whog" data-whog="${p.id}" inputmode="decimal" aria-label="Gram for ${esc(p.name)}" value="${on?esc(s.who[p.id]):""}" placeholder="gram" ${on?"":"disabled"}>`:""}</div>`; }).join("")}</div>
     ${s.type==="quick"?`<div class="note">De valgte får de samme tallene.</div>`:""}</div>`;
 }
@@ -1198,9 +1209,11 @@ document.addEventListener("click", async ev=>{
   else if(a==="day"){ UI.date=addDays(UI.date,Number(v)); render(); }
   else if(a==="close"){ closeSheet(); }
   else if(a==="add"){ openSheet({type:"pick",meal:v,q:""}); }
-  else if(a==="copyY"){ const y=dayDoc(addDays(UI.date,-1)), d=clone(dayDoc(UI.date));
+  else if(a==="copyY"){ const src=t.dataset.k||addDays(UI.date,-1), y=dayDoc(src), d=clone(dayDoc(UI.date));
     const add=(y.entries||[]).filter(e=>e.meal===v).map(e=>({...clone(e),id:uid()}));
-    d.entries=(d.entries||[]).concat(add); d.kind="day"; d.date=UI.date; writeDoc(pk("day-")+UI.date,d); toast(add.length+" ting kopiert"); }
+    d.entries=(d.entries||[]).concat(add); d.kind="day"; d.date=UI.date; writeDoc(pk("day-")+UI.date,d);
+    const kc=add.reduce((a,e)=>a+e.kcal,0), dl=src===addDays(UI.date,-1)?"i går":WEEKDAYS[parseKey(src).getDay()];
+    toast(`${meal(v)} fra ${dl} er logget, ${r0(kc)} kcal`); }
   else if(a==="water"){ const d=clone(dayDoc(UI.date)); d.kind="day"; d.date=UI.date; d.water=Math.max(0,(d.water||0)+Number(v)); writeDoc(pk("day-")+UI.date,d); }
   else if(a==="pickFood"){ const f=allFoods().find(x=>x.id===v); if(f) openAmount(f, UI.sheet.meal); }
   else if(a==="pickRecent"){ const f=recentFoods().find(x=>x.id===v); if(f) openAmount(f, UI.sheet.meal, {lastG:f.lastG}); }
@@ -1217,9 +1230,9 @@ document.addEventListener("click", async ev=>{
     if(s.est) e.est=true;
     const i=d.entries.findIndex(x=>x.id===e.id); if(i>=0) d.entries[i]=e; else d.entries.push(e);
     writeDoc(pk("day-")+UI.date,d);
-    const others = s.entryId ? [] : logForOthers(s, val=>{ const gg=numIn(val); if(gg<=0) return null; const v3=calc(s.food.per,gg);
+    const others = logForOthers(s, val=>{ const gg=numIn(val); if(gg<=0) return null; const v3=calc(s.food.per,gg);
       return {id:uid(),meal:m,name:s.food.name,g:gg,per:s.food.per,portion:s.food.portion||null,foodId:e.foodId,kcal:v3.kcal,p:v3.p,f:v3.f,c:v3.c}; });
-    closeSheet(); toast(s.entryId?"Endret":others.length?`Lagt til for ${[personOf(CUR).name,...others].join(", ")}`:"Lagt til i "+meal(m).toLowerCase()); }
+    closeSheet(); toast(s.entryId ? (others.length?`Endret, og lagt til for ${others.join(", ")}`:"Endret") : others.length?`Lagt til for ${[personOf(CUR).name,...others].join(", ")}`:"Lagt til i "+meal(m).toLowerCase()); }
   else if(a==="person"){ if(v!==CUR) setActive(v); }
   else if(a==="newPerson"){ openSheet({type:"person"}); }
   else if(a==="editPerson"){ const p=personOf(v); openSheet({type:"person",id:p.id,name:p.name}); }
@@ -1245,8 +1258,8 @@ document.addEventListener("click", async ev=>{
     const e={id:s.entryId||uid(),meal:m,name:name||"Hurtiglogg",quick:true,g:0,per:null,kcal,p:q.p,f:q.f,c:q.c};
     const i=d.entries.findIndex(x=>x.id===e.id); if(i>=0) d.entries[i]=e; else d.entries.push(e);
     writeDoc(pk("day-")+UI.date,d);
-    const others = s.entryId ? [] : logForOthers(s, ()=>({...e,id:uid()}));
-    closeSheet(); toast(s.entryId?"Endret":others.length?`${r0(kcal)} kcal logget for ${[personOf(CUR).name,...others].join(", ")}`:`${r0(kcal)} kcal logget i ${meal(m).toLowerCase()}`); }
+    const others = logForOthers(s, ()=>({...e,id:uid()}));
+    closeSheet(); toast(s.entryId ? (others.length?`Endret, og lagt til for ${others.join(", ")}`:"Endret") :others.length?`${r0(kcal)} kcal logget for ${[personOf(CUR).name,...others].join(", ")}`:`${r0(kcal)} kcal logget i ${meal(m).toLowerCase()}`); }
   else if(a==="editEntry"){ const e=(dayDoc(UI.date).entries||[]).find(x=>x.id===v); if(!e) return;
     if(e.quick){ openSheet({type:"quick",entryId:e.id,meal:e.meal,name:e.name==="Hurtiglogg"?"":e.name,kcal:r1(e.kcal),p:r1(e.p),c:r1(e.c),f:r1(e.f)}); return; }
     const per=e.per||{kcal:e.kcal/e.g*100,p:e.p/e.g*100,f:e.f/e.g*100,c:e.c/e.g*100};
