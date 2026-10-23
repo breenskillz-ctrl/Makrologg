@@ -23,6 +23,13 @@
  * Adressen er hemmelig nok til at bare den som har den kan skrive. Ikke del den.
  * Endrer du skriptet senere: Distribuer → Administrer distribusjoner → rediger → Ny versjon,
  * så beholder du samme adresse.
+ *
+ * Supabase (valgfritt): hver post sendes også videre til Supabase-funksjonen public.ingest.
+ *   Prosjektinnstillinger (tannhjulet til venstre) → Skriptegenskaper → legg til:
+ *     SUPABASE_URL         https://<prosjekt-id>.supabase.co
+ *     SUPABASE_SECRET_KEY  secret key fra Supabase (Project Settings → API Keys, starter med sb_secret_)
+ *   Nøkkelen ligger da bare i Apps Script, aldri i koden. Kjør testSupabase én gang for å sjekke.
+ *   Uten disse to egenskapene virker skriptet som før, bare mot regnearket.
  */
 
 var TABS = {
@@ -165,13 +172,56 @@ function handle(text) {
 
   var lock = LockService.getScriptLock();
   lock.waitLock(20000);
+  var result;
   try {
-    var result = upsert(tab, r);
+    result = upsert(tab, r);
     if (tab.after) tab.after(r);
-    return out({ ok: true, result: result });
   } finally {
     lock.releaseLock();
   }
+
+  // Videre til Supabase. Feiler det, svarer vi med feil, så appen prøver igjen senere
+  // (regnearket tåler at samme post kommer flere ganger).
+  var sb = toSupabase(r);
+  if (sb && !sb.ok) return out({ ok: false, error: 'Supabase: ' + sb.error });
+  return out({ ok: true, result: result, supabase: sb ? 'ok' : 'av' });
+}
+
+// Sender én post til public.ingest i Supabase. Gir null hvis Supabase ikke er satt opp.
+function toSupabase(r) {
+  var props = PropertiesService.getScriptProperties();
+  var url = (props.getProperty('SUPABASE_URL') || '').trim().replace(/\/+$/, '');
+  var key = (props.getProperty('SUPABASE_SECRET_KEY') || '').trim();
+  if (!url || !key) return null;
+
+  var headers = { apikey: key };
+  if (key.indexOf('eyJ') === 0) headers.Authorization = 'Bearer ' + key; // gammel JWT-nøkkel
+  try {
+    var res = UrlFetchApp.fetch(url + '/rest/v1/rpc/ingest', {
+      method: 'post',
+      contentType: 'application/json',
+      headers: headers,
+      payload: JSON.stringify({ r: r }),
+      muteHttpExceptions: true
+    });
+    var code = res.getResponseCode(), body = res.getContentText();
+    if (code >= 300) return { ok: false, error: code + ' ' + body.slice(0, 200) };
+    var json = JSON.parse(body || '{}');
+    return json && json.ok ? { ok: true } : { ok: false, error: (json && json.error) || 'ukjent svar' };
+  } catch (err) {
+    return { ok: false, error: String(err).slice(0, 200) };
+  }
+}
+
+/**
+ * Kjør én gang fra Apps Script (velg «testSupabase» i lista øverst og trykk Kjør).
+ * Sjekker at adressen og nøkkelen virker uten å lagre noe.
+ */
+function testSupabase() {
+  var res = toSupabase({ t: 'test', date: '2000-01-01' });
+  if (res === null) Logger.log('Supabase er ikke satt opp: mangler SUPABASE_URL eller SUPABASE_SECRET_KEY i Skriptegenskaper.');
+  else if (!res.ok && /ukjent type/.test(res.error)) Logger.log('OK! Kontakt med Supabase, og nøkkelen virker.');
+  else Logger.log('Feil: ' + res.error);
 }
 
 /**
