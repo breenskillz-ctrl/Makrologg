@@ -5,7 +5,7 @@
  *   Dager      – Makrologg: én rad per person og dag (kalorier, makroer, mål, trening, hva som ble spist)
  *   Vekt       – Makrologg: én rad per person og dag
  *   Garmin     – Makrologg: én rad per person og dag (søvnscore, body battery, hvilepuls, HRV …)
- *   Økter      – Loadlog: én rad per treningsdag (varighet, antall sett, volum, sammendrag)
+ *   Økter      – Loadlog: én rad per treningsdag (varighet, sett, volum, sammendrag med tagger og kommentarer, notat)
  *   Sett       – Loadlog: én rad per gjennomført sett (øvelse, vekt, reps, nivå, variant, e1RM)
  *   Kroppsmål  – Loadlog: én rad per måling (vekt, bryst, liv, armer, lår)
  * Endres en dag i en app, oppdateres samme rad i stedet for å lage en ny.
@@ -56,17 +56,21 @@ var TABS = {
   },
   workout: {
     name: 'Økter',
-    cols: ['Dato', 'Person', 'Tittel', 'Minutter', 'Sett', 'Volum', 'Planlagt, ikke gjort', 'Øvelser', 'Person-ID', 'Oppdatert'],
+    cols: ['Dato', 'Person', 'Tittel', 'Minutter', 'Sett', 'Volum', 'Planlagt, ikke gjort', 'Øvelser', 'Person-ID', 'Oppdatert', 'Notat'],
     row: function (r) {
-      var vol = 0, byEx = {}, order = [];
+      var vol = 0, byEx = {}, order = [], exNote = {};
+      (r.notes || []).forEach(function (n) { exNote[n[0]] = n[1]; if (!byEx[n[0]]) { byEx[n[0]] = []; order.push(n[0]); } });
       (r.sets || []).forEach(function (s) {
         var w = Number(s[2]) || 0, reps = Number(s[3]) || 0;
         if (s[6] !== 'warmup') vol += w * reps;
         if (!byEx[s[0]]) { byEx[s[0]] = []; order.push(s[0]); }
-        byEx[s[0]].push((s[2] !== '' ? s[2] + '×' : '') + (s[3] !== '' ? s[3] : (s[4] !== '' ? s[4] + 's' : s[5] + 'km')) + (s[6] && s[6] !== 'normal' ? ' ' + s[6] : ''));
+        byEx[s[0]].push((s[2] !== '' ? s[2] + '×' : '') + (s[3] !== '' ? s[3] : (s[4] !== '' ? s[4] + 's' : s[5] + 'km')) +
+          (s[6] && s[6] !== 'normal' ? ' ' + s[6] : '') + (s[7] ? ' ' + s[7] : '') + (s[8] ? ' «' + s[8] + '»' : ''));
       });
-      var summary = order.map(function (n) { return n + ': ' + byEx[n].join(', '); }).join(' | ');
-      return [r.date, r.person, r.title || '', v(r.min), (r.sets || []).length, Math.round(vol), r.planned || 0, summary, r.pid, new Date()];
+      var summary = order.map(function (n) {
+        return n + (exNote[n] ? ' [' + exNote[n] + ']' : '') + ': ' + byEx[n].join(', ');
+      }).join(' | ');
+      return [r.date, r.person, r.title || '', v(r.min), (r.sets || []).length, Math.round(vol), r.planned || 0, summary, r.pid, new Date(), r.note || ''];
     },
     // Each set also gets its own row in «Sett»
     after: function (r) {
@@ -103,6 +107,9 @@ function sheetFor(tab) {
     sh.getRange(1, 1, 1, tab.cols.length).setValues([tab.cols]).setFontWeight('bold');
     sh.setFrozenRows(1);
     sh.getRange('A:A').setNumberFormat('@'); // datoer som tekst (ÅÅÅÅ-MM-DD), ikke tolket
+  } else if (sh.getLastColumn() < tab.cols.length) {
+    // Nye kolonner i en eldre fane: skriv overskriftene som mangler
+    sh.getRange(1, 1, 1, tab.cols.length).setValues([tab.cols]).setFontWeight('bold');
   }
   return sh;
 }
