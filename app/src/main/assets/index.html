@@ -1,4 +1,4 @@
-<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="15"><title>Makrologg</title>
+<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="16"><title>Makrologg</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
 <style>
@@ -51,6 +51,9 @@ header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background
 .mrow .mtop{display:flex;justify-content:space-between;font-size:13px;gap:6px}
 .mrow .mtop b{font-weight:600}
 .mrow .mtop span{color:var(--muted)}
+.mrow .mtop .left{color:var(--fg);font-weight:600}
+.mrow .mtop .left.ov{color:var(--over)}
+.msub{font-size:11px;color:var(--muted);margin-top:3px}
 .bar{height:8px;border-radius:4px;background:var(--surface-2);overflow:hidden;margin-top:4px}
 .bar i{display:block;height:100%;border-radius:4px}
 .leftrow{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center}
@@ -114,6 +117,11 @@ header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background
 .steps{margin:0;padding-left:20px;font-size:14px;display:flex;flex-direction:column;gap:4px}
 .okline{font-size:14px;font-weight:600;color:var(--ok)}
 .ptitle{font-family:var(--display);font-weight:800;font-size:24px;margin:4px 2px 0}
+.qbig{font-size:17px;padding:13px 14px}
+.qtools{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none}
+.qtools::-webkit-scrollbar{display:none}
+.qtool{flex:1 0 auto;display:flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 12px;font-weight:600;font-size:13px;color:var(--fg)}
+.qtool svg{width:18px;height:18px;color:var(--accent)}
 .qk-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .meal h3{margin:0;font-family:var(--display);font-weight:600;font-size:17px}
 .meal .mk{font-size:13px;color:var(--muted)}
@@ -565,9 +573,9 @@ function personBar(){
 }
 function macroRow(label,val,goal,color){
   const pct=Math.min(100, goal? val/goal*100:0);
-  const over = val>goal*1.05;
-  return `<div class="mrow"><div class="mtop"><b>${label}</b><span class="num">${r0(val)} / ${r0(goal)} g</span></div>
-  <div class="bar"><i style="width:${pct}%;background:${over?"var(--over)":color}"></i></div></div>`;
+  const over = val>goal*1.05, left=goal-val;
+  return `<div class="mrow"><div class="mtop"><b>${label}</b><span class="num left ${left<-0.5?"ov":""}">${left<-0.5?"+"+r0(-left)+" g over":r0(left)+" g igjen"}</span></div>
+  <div class="bar"><i style="width:${pct}%;background:${over?"var(--over)":color}"></i></div><div class="msub num">${r0(val)} av ${r0(goal)} g</div></div>`;
 }
 
 function viewDay(){
@@ -581,8 +589,6 @@ function viewDay(){
       <circle cx="66" cy="66" r="56" fill="none" stroke="${over?"var(--over)":"var(--kcal)"}" stroke-width="12" stroke-linecap="round" stroke-dasharray="${C*frac} ${C}"/></svg>
       <div class="center"><div class="big num">${r0(Math.abs(left))}</div><div class="small">${over?"kcal over":"kcal igjen"}</div></div></div>
     <div class="macros">${macroRow("Protein",t.p,g.p,"var(--prot)")}${macroRow("Karbohydrater",t.c,g.c,"var(--carb)")}${macroRow("Fett",t.f,g.f,"var(--fat)")}</div>
-    <div class="leftrow num">${[["kcal","kcal",""],["p","protein"," g"],["c","karbo"," g"],["f","fett"," g"]].map(([k,l,u])=>{ const r=g[k]-t[k], ov=r<-0.5;
-      return `<div class="${ov?"ov":""}"><b>${ov?"+":""}${r0(Math.abs(r))}${u}</b><span>${ov?l+" over":l+" igjen"}</span></div>`; }).join("")}</div>
     <div class="kline"><span>Spist <b class="num">${r0(t.kcal)}</b> kcal</span><span>Mål <b class="num">${r0(g.kcal)}</b> kcal${g.extra?` <span class="num">(+${r0(g.extra)} trening)</span>`:""}</span></div>
   </section>`;
   h += planCard(UI.date);
@@ -920,6 +926,7 @@ function renderSheet(){
   const nsb=root.querySelector(".sb"); if(nsb) nsb.scrollTop=scroll;
   if(keepFocus){ const el=document.getElementById(keepFocus); if(el){ el.focus(); try{ if(selStart!=null) el.setSelectionRange(selStart,selStart);}catch(e){} } }
   updateAmountPreview(); updateGoalSum(); updateQuickHint();
+  if(s.type==="pick" && !s.focused){ s.focused=true; const q=document.getElementById("q"); if(q) setTimeout(()=>q.focus(),30); }
 }
 
 /* ---------- Matvaretabellen (Mattilsynet), cached on the phone ---------- */
@@ -1040,13 +1047,13 @@ function sheetPick(s){
   let list;
   if(q){ list=rankFoods(allFoods(),q); }
   const ai=!!SAMPLE && s.meal!=="tpl";
-  let h=`<div class="tools">
-    <button class="tool" data-act="scan">${ICON.scan}<span>Skann strekkode<small>Henter næringsinnhold</small></span></button>
-    <button class="tool" data-act="quick">${ICON.bolt}<span>Hurtiglogg<small>Bare kcal og makroer</small></span></button>
-    ${ai?`<button class="tool" data-act="labelPhoto">${ICON.label}<span>Les etikett<small>Claude leser næringsinnhold</small></span></button>`:""}
-    ${ai?`<button class="tool" data-act="estimate">${ICON.spark}<span>Beskriv måltid<small>Tekst eller bilde, Claude anslår</small></span></button>`:""}
-    <button class="tool" data-act="newProduct">${ICON.pen}<span>Ny matvare<small>Fyll inn selv</small></span></button></div>
-    <input class="inp" id="q" type="search" placeholder="Søk i matvarer" value="${esc(s.q||"")}" autocomplete="off">`;
+  let h=`<input class="inp qbig" id="q" type="search" placeholder="Søk i matvarer" value="${esc(s.q||"")}" autocomplete="off" enterkeyhint="search">
+    <div class="qtools">
+    <button class="qtool" data-act="scan">${ICON.scan}<span>Skann</span></button>
+    <button class="qtool" data-act="quick">${ICON.bolt}<span>Hurtiglogg</span></button>
+    ${ai?`<button class="qtool" data-act="labelPhoto">${ICON.label}<span>Etikett</span></button>`:""}
+    ${ai?`<button class="qtool" data-act="estimate">${ICON.spark}<span>Beskriv</span></button>`:""}
+    <button class="qtool" data-act="newProduct">${ICON.pen}<span>Ny matvare</span></button></div>`;
   if(q){
     const mine=list.filter(f=>!f.base).slice(0,6), genAll=list.filter(f=>f.base), more=s.moreQ===q, gen=genAll.slice(0,more?40:8);
     if(mine.length) h+=`<div class="sect">Mine matvarer</div><div class="list">${mine.map(f=>foodRow(f,"pickFood")).join("")}</div>`;
