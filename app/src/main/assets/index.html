@@ -1,4 +1,4 @@
-<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="19"><title>Makrologg</title>
+<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="20"><title>Makrologg</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
 <style>
@@ -26,6 +26,13 @@
   --accent:#ffffff; --accent-fg:#000000; --accent-soft:#2a2a2a;
   --prot:#d0d0d0; --fat:#6a6a6a; --carb:#9a9a9a; --kcal:#ffffff;
   --over:#ff5a4f; --ok:#bdbdbd; --bar:#4a4a4a; --shadow:none; color-scheme:dark}
+/* colour themes chosen in settings (default = monochrome above) */
+:root[data-pal="lime"]{--accent:#4d6b00;--accent-fg:#ffffff;--accent-soft:#e6f2c4;--kcal:#5c8000;--prot:#2f6fd0;--carb:#8a55d0;--fat:#c98a10;--bar:#a9c46a;--ok:#2f8a4a}
+:root[data-pal="is"]{--accent:#007c99;--accent-fg:#ffffff;--accent-soft:#d3eef5;--kcal:#0092b3;--prot:#4a57d6;--carb:#9a55d6;--fat:#c98a10;--bar:#86c9da;--ok:#1f9a66}
+@media (prefers-color-scheme:dark){:root[data-pal="lime"]:not([data-theme="light"]){--bg:#0b0d10;--surface:#15181d;--surface-2:#1f242b;--line:#2a3038;--fg:#eef1f4;--muted:#8b95a1;--accent:#c6f432;--accent-fg:#111407;--accent-soft:#2b3411;--prot:#5aa9ff;--carb:#b58cff;--fat:#ffb547;--kcal:#c6f432;--over:#ff6b5b;--ok:#4fd18b;--bar:#7f9c26}}
+:root[data-pal="lime"][data-theme="dark"]{--bg:#0b0d10;--surface:#15181d;--surface-2:#1f242b;--line:#2a3038;--fg:#eef1f4;--muted:#8b95a1;--accent:#c6f432;--accent-fg:#111407;--accent-soft:#2b3411;--prot:#5aa9ff;--carb:#b58cff;--fat:#ffb547;--kcal:#c6f432;--over:#ff6b5b;--ok:#4fd18b;--bar:#7f9c26}
+@media (prefers-color-scheme:dark){:root[data-pal="is"]:not([data-theme="light"]){--bg:#070b0f;--surface:#0f161d;--surface-2:#17212b;--line:#22303d;--fg:#eaf6ff;--muted:#87a0b3;--accent:#38e1ff;--accent-fg:#00161c;--accent-soft:#0d3340;--prot:#7c8cff;--carb:#c084fc;--fat:#ffcb47;--kcal:#38e1ff;--over:#ff6b6b;--ok:#4ee6a0;--bar:#1f8aa3}}
+:root[data-pal="is"][data-theme="dark"]{--bg:#070b0f;--surface:#0f161d;--surface-2:#17212b;--line:#22303d;--fg:#eaf6ff;--muted:#87a0b3;--accent:#38e1ff;--accent-fg:#00161c;--accent-soft:#0d3340;--prot:#7c8cff;--carb:#c084fc;--fat:#ffcb47;--kcal:#38e1ff;--over:#ff6b6b;--ok:#4ee6a0;--bar:#1f8aa3}
 *{box-sizing:border-box}
 html,body{height:100%}
 body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45;-webkit-tap-highlight-color:transparent}
@@ -549,7 +556,9 @@ const ICON = {
  pen:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>'
 };
 
+function applyPal(){ const v=(S.docs.settings||{}).palette||""; if(document.documentElement.dataset.pal!==v){ if(v) document.documentElement.dataset.pal=v; else delete document.documentElement.dataset.pal; } }
 function render(){
+  applyPal();
   // tabs
   $("#tabs").innerHTML = [["dag","Dag",ICON.day],["hist","Historikk",ICON.hist],["mal","Kropp",ICON.goal]]
     .map(([k,l,i])=>`<button data-act="tab" data-v="${k}" class="${UI.tab===k?"on":""}">${i}${l}</button>`).join("");
@@ -976,6 +985,7 @@ function myFoodsList(q){ q=(q||"").trim().toLowerCase();
 function viewSettings(){
   const pl=people().list;
   return `<h2 class="ptitle">Innstillinger</h2>
+    <div class="sect">Farger</div><section class="card"><div class="seg" role="group" aria-label="Fargetema">${[["","Monokrom"],["lime","Lime"],["is","Is"]].map(([k,l])=>`<button data-act="setPal" data-v="${k}" class="${((S.docs.settings||{}).palette||"")===k?"on":""}">${l}</button>`).join("")}</div></section>
     <div class="sect">Personer</div><section class="card" style="display:flex;flex-direction:column;gap:10px">
     <div class="list plist">${pl.map(p=>`<button data-act="editPerson" data-v="${p.id}"><span class="nm"><span class="dot" style="background:${pcolor(p)}"></span>${esc(p.name)}${p.id===CUR?'<span class="tag">valgt</span>':""}</span><small>Endre</small></button>`).join("")}</div>
     <button class="btn ghost block" data-act="newPerson">+ Legg til person</button>
@@ -1654,6 +1664,7 @@ Svar KUN med JSON: {"items":[{"name":"kort norsk navn","grams":tall,"kcal":tall,
   else if(a==="saveWeightEdit"){ const s=UI.sheet, w=numIn($("#weKg").value), k=$("#weDate").value||s.date; if(w<20||w>400){ toast("Skriv inn vekten i kg"); return; }
     const wd=clone(weightsDoc()); wd.kind="weights"; wd.items=wd.items||{}; delete wd.items[s.date]; wd.items[k]=w; closeSheet(); writeDoc(pk("weights"),wd); toast("Vekt endret"); }
   else if(a==="deleteWeight"){ const s=UI.sheet, wd=clone(weightsDoc()); wd.kind="weights"; wd.items=wd.items||{}; delete wd.items[s.date]; closeSheet(); writeDoc(pk("weights"),wd); toast("Måling slettet"); }
+  else if(a==="setPal"){ const st=clone(S.docs.settings||{kind:"settings"}); st.kind="settings"; st.palette=v||""; writeDoc("settings",st); }
   else if(a==="gmToggle"){ UI.gmOpen=!UI.gmOpen; render(); }
   else if(a==="backupLater"){ const st=clone(S.docs.settings||{kind:"settings"}); st.kind="settings"; st.backupSnooze=Date.now()+7*864e5; writeDoc("settings",st); }
   else if(a==="copyMeal"){ const others=people().list.filter(x=>x.id!==CUR); const to={}; if(others[0]) to[others[0].id]=true; openSheet({type:"copyMeal",mk:v,pct:100,to}); }
