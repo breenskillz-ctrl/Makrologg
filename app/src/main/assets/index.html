@@ -1,4 +1,4 @@
-<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="21"><title>Makrologg</title>
+<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="22"><title>Makrologg</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
 <style>
@@ -179,6 +179,43 @@ nav.tabs .in{display:flex;gap:4px;max-width:560px;width:100%}
 nav.tabs button{flex:1;min-width:0;border:0;background:transparent;padding:8px 2px;border-radius:12px;font-weight:600;font-size:12px;white-space:nowrap;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:2px}
 nav.tabs button svg{width:22px;height:22px}
 nav.tabs button.on{color:var(--accent);background:var(--accent-soft)}
+/* ukemeny og handleliste (innhold 22) */
+.weekhd{display:flex;align-items:center;justify-content:space-between;margin-top:-6px}
+.weekhd .lbl{font-weight:600;font-size:14px}
+.weekhd button{border:0;background:var(--surface);width:36px;height:36px;border-radius:50%;box-shadow:var(--shadow);font-size:18px;color:var(--fg)}
+.mday{padding:12px 14px 6px;display:flex;flex-direction:column}
+.mday.today{outline:1.5px solid var(--accent)}
+.mday .dh{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding-bottom:6px}
+.mday .dh b{font-family:var(--display);font-size:16px;font-weight:600}
+.mday .dh span{font-size:12px;color:var(--muted)}
+.mdish{display:flex;justify-content:space-between;align-items:center;gap:10px;border:0;border-top:1px solid var(--line);background:none;padding:9px 0;text-align:left;color:var(--fg);font:inherit;width:100%}
+.mdish .nm,.mpick .nm,.mchosen .nm,.prow2 .nm,.sit .nm{display:flex;flex-direction:column;min-width:0}
+.mdish .nm span,.mpick .nm span,.mchosen .nm span,.prow2 .nm span{font-weight:600;overflow-wrap:anywhere}
+.mdish small,.mpick small,.mchosen small,.prow2 small,.sit small{font-size:12px;color:var(--muted)}
+.mdish .k{font-size:12px;color:var(--muted);text-align:right;white-space:nowrap;line-height:1.5}
+.mdish .k b{color:var(--fg);font-weight:600}
+.madd{display:flex;flex-wrap:wrap;gap:4px 16px;border-top:1px solid var(--line);padding:4px 0 2px}
+.madd .link{padding-left:0}
+.mpick{display:flex;justify-content:space-between;align-items:center;gap:10px;border:0;border-top:1px solid var(--line);background:none;padding:11px 14px;text-align:left;color:var(--fg);font:inherit;width:100%}
+.mpick:first-child{border-top:0}
+.chev2{color:var(--muted);font-size:20px}
+.mchosen{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--surface);border-radius:14px;padding:12px 14px}
+.mprev{flex:1;text-align:right;font-size:12px;color:var(--muted);white-space:nowrap}
+.who .chk{display:flex;align-items:center;gap:8px;font-weight:600;min-width:0;color:var(--fg)}
+.who .chk input{accent-color:var(--accent);width:18px;height:18px}
+.shop{padding:0 0 4px}
+.shop .grp{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);padding:12px 14px 4px}
+.sit{display:flex;align-items:center;gap:12px;padding:9px 14px;border:0;border-top:1px solid var(--line);background:none;width:100%;text-align:left;color:var(--fg);font:inherit}
+.shop .grp+.sit{border-top:0}
+.sit .cb{width:22px;height:22px;border:2px solid var(--line);border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800}
+.sit.done .cb{background:var(--fg);border-color:var(--fg);color:var(--bg)}
+.sit .nm{flex:1}
+.sit .nm span{font-weight:600}
+.sit .q{font-weight:600;white-space:nowrap;text-align:right}
+.sit .q small{display:block;font-weight:400}
+.sit.done .nm span,.sit.done .q{text-decoration:line-through;color:var(--muted)}
+.plancard{display:flex;flex-direction:column;gap:8px;border:1px dashed var(--line);box-shadow:none}
+.prow2{display:flex;justify-content:space-between;align-items:center;gap:10px}
 /* sheet */
 .scrim{position:fixed;inset:0;background:rgba(5,12,10,.45);z-index:20}
 .sheet{position:fixed;left:0;right:0;bottom:0;z-index:21;background:var(--bg);border-radius:22px 22px 0 0;max-height:92%;display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -563,7 +600,7 @@ function applyPal(){ const v=(S.docs.settings||{}).palette||""; if(document.docu
 function render(){
   applyPal();
   // tabs
-  $("#tabs").innerHTML = [["dag","Dag",ICON.day],["hist","Historikk",ICON.hist],["mal","Kropp",ICON.goal]]
+  $("#tabs").innerHTML = [["dag","Dag",ICON.day],["meny","Meny",ICON.pot],["hist","Historikk",ICON.hist],["mal","Kropp",ICON.goal]]
     .map(([k,l,i])=>`<button data-act="tab" data-v="${k}" class="${UI.tab===k?"on":""}">${i}${l}</button>`).join("");
   $("#datenav").innerHTML = UI.tab==="dag" ? `<button data-act="day" data-v="-1" aria-label="Forrige dag">‹</button><button class="dlabel" data-act="pickDate" aria-label="Velg dato: ${dateLabel(UI.date)}">${dateLabel(UI.date)}</button><button data-act="day" data-v="1" aria-label="Neste dag">›</button>` : "";
   const gb=$("#gearBtn"); if(gb) gb.classList.toggle("on", UI.tab==="innst"||UI.tab==="tider");
@@ -572,6 +609,7 @@ function render(){
   if(UI.tab==="innst"){ m.innerHTML = viewSettings(); return; }
   if(UI.tab==="dag") m.innerHTML = pb + updateBanner() + viewDay();
   else if(UI.tab==="hist") m.innerHTML = pb + viewHist();
+  else if(UI.tab==="meny") m.innerHTML = viewMenu();
   else if(UI.tab==="plan"){ UI.tab="innst"; m.innerHTML = viewSettings(); }
   else if(UI.tab==="tider") m.innerHTML = `<button class="link sm" data-act="tab" data-v="innst" style="margin:4px 0 0;padding-left:0;display:block;text-align:left">‹ Innstillinger</button><h2 class="ptitle">Måltidstider</h2>` + viewTider();
   else m.innerHTML = pb + viewGoals();
@@ -624,6 +662,7 @@ function viewDay(){
     ${weekLine(UI.date)}
   </section>`;
   h += planCard(UI.date);
+  h += plannedCard(UI.date);
   if(!(S.docs[pk("profile")])) h += `<section class="card"><div style="font-weight:600;margin-bottom:4px">Sett dine egne mål</div><div class="note" style="margin-bottom:10px">Målene over er standardverdier. Regn ut dine basert på vekt, høyde og aktivitet.</div><button class="btn primary" data-act="tab" data-v="mal">Regn ut mål</button></section>`;
   const yday = dayDoc(addDays(UI.date,-1));
   const sch=daySchedule(UI.date), at={}; sch.forEach(x=>at[x.meal]=x);
@@ -878,6 +917,157 @@ function sheetDish(){
    ${t.id&&foodsDoc().items&&foodsDoc().items[t.id]?`<button class="btn danger block" data-act="dishRemove">Slett retten</button>`:""}`;
 }
 
+/* ---------- Ukemeny og handleliste (innhold 22): én felles meny for alle personene. Hver rett får en porsjon per
+   person regnet ut fra den personens mål den dagen; handlelista summerer ingrediensene for uka. ---------- */
+const menuDoc = () => S.docs.menu || {kind:"menu",days:{},shop:{}};
+const MENU_SLOTS = [["middag","Middag"],["matboks","Matboks"]];
+const MENU_SHARE = 0.3;                                   /* middag ≈ 30 % av dagens kalorimål */
+const MENU_LOGMEAL = {middag:"middag", matboks:"snacks"};
+const mondayOf = k => addDays(k, -((parseKey(k).getDay()+6)%7));
+function weekNo(k){ const d=parseKey(k); d.setDate(d.getDate()+3-((d.getDay()+6)%7)); const y=new Date(d.getFullYear(),0,4);
+  return 1+Math.round(((d-y)/86400000-3+((y.getDay()+6)%7))/7); }
+function shortDate(k){ const d=parseKey(k); return d.getDate()+"."+(d.getMonth()+1)+"."; }
+function menuSrc(ref){ if(!ref) return null; if(ref.t==="tpl") return tplById(ref.id);
+  return (foodsDoc().items||{})[ref.id] || allFoods().find(f=>f.id===ref.id) || null; }
+function menuVal(ref, amt){ const s=menuSrc(ref); if(!s||!(amt>0)) return null;
+  if(ref.t==="tpl"){ const t=tplTotals(s); return {kcal:t.kcal*amt,p:t.p*amt,f:t.f*amt,c:t.c*amt}; }
+  return calc(s.per, amt); }
+const FRAC = {0.25:"¼",0.5:"½",0.75:"¾"};
+function portionText(m){ const w=Math.floor(m+1e-9), f=Math.round((m-w)*4)/4, fs=FRAC[f]||(f?fmt1(f).replace(/^0/,""):"");
+  return (w?String(w):"")+(fs||"")+(w||fs?"":"0")+" porsjon"; }
+const menuAmtText = (ref, amt) => ref.t==="tpl" ? portionText(amt) : r0(amt)+" g";
+function suggestAmt(ref, pid, k, slot){ const s=menuSrc(ref); if(!s) return 0;
+  if(slot==="matboks") return ref.t==="tpl" ? 1 : (s.portion&&s.portion.g>0 ? s.portion.g : 100);
+  const target=withPerson(pid,()=>goalsFor(k).kcal)*MENU_SHARE;
+  if(ref.t==="tpl"){ const kc=tplTotals(s).kcal||1; return Math.min(3,Math.max(0.25,Math.round(target/kc*4)/4)); }
+  return Math.max(10, Math.round(target/(s.per.kcal||1)*100/10)*10); }
+function menuDay(k){ return (menuDoc().days||{})[k] || {items:[]}; }
+function saveMenu(fn){ const m=clone(menuDoc()); m.kind="menu"; m.days=m.days||{}; m.shop=m.shop||{}; fn(m);
+  for(const k in m.days) if(!(m.days[k].items||[]).length) delete m.days[k];
+  writeDoc("menu", m); }
+/* planned and not yet logged for the active person on day k */
+function plannedFor(k){ return (menuDay(k).items||[]).filter(it=>it.by&&it.by[CUR]>0&&!(it.logged&&it.logged[CUR])&&menuSrc(it.ref)); }
+
+function viewMenu(){
+  const mon=UI.menuWeek||mondayOf(todayKey()), today=todayKey();
+  if(UI.menuView==="shop") return viewShop(mon);
+  const ppl=people().list, sun=addDays(mon,6);
+  let h=`<h2 class="ptitle">Ukemeny</h2>
+   <div class="weekhd"><button data-act="menuWeek" data-v="-7" aria-label="Forrige uke">‹</button><span class="lbl">Uke ${weekNo(mon)} · ${shortDate(mon)}–${shortDate(sun)}</span><button data-act="menuWeek" data-v="7" aria-label="Neste uke">›</button></div>`;
+  let n=0;
+  for(let i=0;i<7;i++){ const k=addDays(mon,i), items=menuDay(k).items||[], wd=WEEKDAYS[parseKey(k).getDay()];
+    n+=items.filter(it=>it.slot==="middag").length;
+    const rows=items.map(it=>{ const s=menuSrc(it.ref);
+      const who=ppl.filter(p=>it.by&&it.by[p.id]>0).map(p=>{ const v=menuVal(it.ref,it.by[p.id]);
+        return `${multi()?esc(p.name)+" ":""}<b>${esc(menuAmtText(it.ref,it.by[p.id]))}${v?" · "+r0(v.kcal):""}</b>${it.logged&&it.logged[p.id]?" ✓":""}`; }).join("<br>");
+      return `<button class="mdish" data-act="menuEdit" data-k="${k}" data-v="${it.id}"><span class="nm"><span>${esc(s?s.name:it.name)}</span><small>${it.slot==="matboks"?"Matboks":s&&s.dish?"Rett":it.ref.t==="tpl"?"Fast måltid":"Matvare"}${s?"":" · finnes ikke lenger"}</small></span><span class="k num">${who}</span></button>`; }).join("");
+    const hasDinner=items.some(it=>it.slot==="middag");
+    h+=`<section class="card mday ${k===today?"today":""}"><div class="dh"><b>${wd[0].toUpperCase()+wd.slice(1)}</b><span>${shortDate(k)}${k===today?" · i dag":""}</span></div>
+      ${rows}
+      <div class="madd">${hasDinner?"":`<button class="link sm" data-act="menuAdd" data-k="${k}" data-v="middag">+ Middag</button>`}<button class="link sm" data-act="menuAdd" data-k="${k}" data-v="matboks">+ Matboks</button>${hasDinner?`<button class="link sm" data-act="menuAdd" data-k="${k}" data-v="middag">+ Mer til middag</button>`:""}</div></section>`;
+  }
+  h+=`<button class="btn primary block" data-act="menuShop">Handleliste${n?` · ${n} middag${n===1?"":"er"}`:""}</button>
+   <div class="note">Porsjonene regnes ut fra målet til hver person den dagen (middag ≈ 30 %). Du kan endre grammene når du legger til. Det som er planlagt, ligger klart under Dag og logges med ett trykk.</div>`;
+  return h;
+}
+
+/* pick sheet: list of dishes, fixed meals and own foods; then portions per person */
+function sheetMenuPick(s){
+  if(!s.ref){
+    const q=(s.q||"").trim().toLowerCase(), hit=x=>!q||String(x.name||"").toLowerCase().includes(q);
+    const foods=Object.values(foodsDoc().items||{}).filter(hit);
+    const dishes=foods.filter(f=>f.dish).sort((a,b)=>(b.dish.made||0)-(a.dish.made||0));
+    const own=foods.filter(f=>!f.dish&&f.per).sort((a,b)=>String(a.name).localeCompare(String(b.name),"nb"));
+    const tpls=Object.values(mealsDoc().items||{}).filter(hit);
+    const row=(t,x,sub)=>`<button class="mpick" data-act="menuPickSel" data-t="${t}" data-v="${esc(x.id)}"><span class="nm"><span>${esc(x.name)}</span><small class="num">${sub}</small></span><span class="chev2">›</span></button>`;
+    let h=`<input class="inp" id="mq" placeholder="Søk i retter, faste måltider og matvarer" value="${esc(s.q||"")}" autocomplete="off">`;
+    if(dishes.length) h+=`<div class="sect">Retter</div><div class="list">${dishes.map(f=>row("food",f,`${r0(f.per.kcal)} kcal · ${r0(f.per.p)} g protein per 100 g`)).join("")}</div>`;
+    if(tpls.length) h+=`<div class="sect">Faste måltider</div><div class="list">${tpls.map(t=>{ const v=tplTotals(t); return row("tpl",t,`${r0(v.kcal)} kcal · ${r0(v.p)} g protein`); }).join("")}</div>`;
+    if(own.length) h+=`<div class="sect">Mine matvarer</div><div class="list">${own.slice(0,q?40:15).map(f=>row("food",f,`${r0(f.per.kcal)} kcal per 100 g`)).join("")}</div>`;
+    if(!dishes.length&&!tpls.length&&!own.length) h+=`<div class="note">${q?"Ingen treff.":"Du har ingen retter eller faste måltider ennå."} Lag en rett med «Ny rett» på Dag, eller et fast måltid under Innstillinger, så kan du velge den her.</div>`;
+    return h;
+  }
+  const src=menuSrc(s.ref), ppl=people().list, tpl=s.ref.t==="tpl";
+  let h=`<div class="mchosen"><span class="nm"><span>${esc(src?src.name:"")}</span><small>${tpl?"Fast måltid":src&&src.dish?"Rett · per 100 g ferdig rett":"Matvare"}</small></span>${s.itemId?"":`<button class="link sm" data-act="menuPickBack">Bytt</button>`}</div>
+   <div class="field"><span class="flabel">Hvem spiser – ${tpl?"porsjoner":"gram"}</span><div class="whos">${ppl.map(p=>{ const on=s.who[p.id]!=null;
+     return `<div class="who"><label class="chk"><input type="checkbox" data-mwho="${p.id}" ${on?"checked":""}> ${esc(p.name)}</label>
+       <span class="mprev num" id="mp-${p.id}"></span>
+       <input class="inp num whog" data-mw="${p.id}" inputmode="decimal" aria-label="${tpl?"Porsjoner":"Gram"} for ${esc(p.name)}" value="${on?esc(String(s.who[p.id]).replace(".",",")):""}" ${on?"":"disabled"}></div>`; }).join("")}</div></div>
+   ${tpl?`<div class="note">1 = én porsjon slik det faste måltidet er lagret. 0,75 = tre firedeler.</div>`:""}
+   <button class="btn primary block" data-act="menuSave">${s.itemId?"Lagre":"Legg til "+WEEKDAYS[parseKey(s.day).getDay()]}</button>
+   ${s.itemId?`<button class="btn danger block" data-act="menuDel">Fjern fra menyen</button>`:""}`;
+  return h;
+}
+function updateMenuPreview(){ const s=UI.sheet; if(!s||s.type!=="menuPick"||!s.ref) return;
+  for(const p of people().list){ const el=document.getElementById("mp-"+p.id); if(!el) continue;
+    const v=s.who[p.id]!=null?menuVal(s.ref,numIn(s.who[p.id])):null; el.textContent=v?`${r0(v.kcal)} kcal · ${r0(v.p)} g P`:""; } }
+
+/* shopping list: ingredients of the week's planned food; a dish counts as whole pots */
+const SHOP_CATS=[["Brød og tørrvarer",/peanøtt|nøtt|mandel|ris\b|ris |^ris|pasta|spaghetti|nudler|mel\b|hvetemel|havre|brød|lefse|tortilla|wrap|knekkebrød|müsli|gryn|couscous|bulgur|krydder|buljong|olje|sukker|honning|sirup|ketchup|sennep|majones|soya|taco|salsa|hermetisk|bønner på boks/i],
+  ["Kjøtt og pålegg",/kjøtt|deig|filet|biff|svin|storfe|okse|kotelett|bacon|skinke|pølse|kalkun|lam\b|lamme|elg|hjort|karbonade|entrecote|kebab|reke|scampi|pålegg|salami|leverpostei/i],
+  ["Frukt og grønt",/brokkoli|gulrot|løk|hvitløk|paprika|tomat|agurk|salat|spinat|potet|banan|eple|appelsin|bær|avokado|squash|sopp|mais|erter|bønner|kål|purre|sitron|lime|ingefær|chili|frukt|grønnsak|selleri|aubergine|druer|mango|ananas|kiwi|pære/i],
+  ["Meieri og egg",/melk|ost|yoghurt|skyr|kesam|rømme|fløte|smør|egg|cottage|crème|kremost|kvarg|matfløte/i]];
+const shopCat = name => (SHOP_CATS.find(([,re])=>re.test(name))||["Annet"])[0];
+function shopList(mon){
+  const eaten={};                                          /* per source: total amount over the week */
+  for(let i=0;i<7;i++){ const k=addDays(mon,i);
+    for(const it of menuDay(k).items||[]){ const tot=Object.values(it.by||{}).reduce((a,x)=>a+(Number(x)||0),0); if(!(tot>0)) continue;
+      const key=it.ref.t+":"+it.ref.id, e=eaten[key]||(eaten[key]={ref:it.ref,name:it.name,amt:0}); e.amt+=tot; } }
+  const agg={};
+  const add=(p,use)=>{ if(!(p.g>0)) return; const nm=String(p.name||"").replace(/\s*\(rå\)\s*$/i,"").trim(), key=nm.toLowerCase(); if(!key) return;
+    const a=agg[key]||(agg[key]={key,name:nm,g:0,portion:p.portion||null,uses:[]}); a.g+=p.g; if(!a.portion&&p.portion) a.portion=p.portion; if(!a.uses.includes(use)) a.uses.push(use); };
+  for(const e of Object.values(eaten)){ const s=menuSrc(e.ref); if(!s) continue;
+    if(e.ref.t==="tpl") (s.items||[]).forEach(x=>add({name:x.name,g:x.g*e.amt,portion:x.portion},s.name));
+    else if(s.dish&&(s.dish.items||[]).length){ const cooked=s.dish.cooked||s.dish.items.reduce((a,x)=>a+x.g,0)||1;
+      const pots=Math.max(1,Math.ceil(e.amt/cooked-0.15));
+      s.dish.items.forEach(x=>add({name:x.name,g:x.g*pots,portion:x.portion},s.name+(pots>1?` (${pots} ganger)`:""))); }
+    else add({name:s.name,g:e.amt,portion:s.portion},"Matvare"); }
+  return Object.values(agg);
+}
+function shopQty(a){ const g=a.g, txt=g>=1000?fmt1(g/1000)+" kg":r0(Math.ceil(g/10)*10)+" g";
+  const p=a.portion; let sub="";
+  if(p&&p.g>0&&p.label){ const n=Math.max(1,Math.ceil(g/p.g-0.1));
+    sub = /pakke|pose|boks|beger|flaske/i.test(p.label) ? `${n} × ${r0(p.g)} g` : /^1 /.test(p.label)&&!/porsjon|dl|ss|ts|glass|håndfull|skje|kopp|rad|skive|^1 ½/i.test(p.label) ? `≈ ${n} ${p.label.slice(2)}` : ""; }
+  return {txt,sub}; }
+function viewShop(mon){
+  const st=(menuDoc().shop||{})[mon]||{}, done=st.done||{}, list=shopList(mon), extra=st.extra||[];
+  const groups={}; list.forEach(a=>{ (groups[shopCat(a.name)]=groups[shopCat(a.name)]||[]).push(a); });
+  const order=["Kjøtt og pålegg","Frukt og grønt","Meieri og egg","Brød og tørrvarer","Annet"];
+  let h=`<button class="link sm" data-act="menuShopBack" style="margin:4px 0 0;padding-left:0;display:block;text-align:left">‹ Ukemeny</button>
+   <h2 class="ptitle">Handleliste</h2><div class="note" style="margin-top:-8px">Uke ${weekNo(mon)} · ${shortDate(mon)}–${shortDate(addDays(mon,6))}</div>`;
+  if(!list.length&&!extra.length) return h+`<section class="card"><div class="note">Ingenting planlagt denne uka ennå. Legg inn middager i ukemenyen, så kommer ingrediensene her.</div></section>`;
+  const it=(key,name,sub,q,qs)=>`<button class="sit ${done[key]?"done":""}" data-act="shopTick" data-v="${esc(key)}"><span class="cb">${done[key]?"✓":""}</span><span class="nm"><span>${esc(name)}</span>${sub?`<small>${esc(sub)}</small>`:""}</span><span class="q num">${esc(q)}${qs?`<small>${esc(qs)}</small>`:""}</span></button>`;
+  h+=`<section class="card shop">`;
+  for(const c of order){ const g=groups[c]; if(!g) continue; g.sort((a,b)=>(done[a.key]?1:0)-(done[b.key]?1:0)||a.name.localeCompare(b.name,"nb"));
+    h+=`<div class="grp">${c}</div>`+g.map(a=>{ const q=shopQty(a); return it(a.key,a.name,a.uses.join(", "),q.txt,q.sub); }).join(""); }
+  if(extra.length) h+=`<div class="grp">Lagt til selv</div>`+extra.map(x=>it("x:"+x.id,x.name,"","","")).join("");
+  h+=`</section>
+   <div class="row" style="gap:8px;flex-wrap:nowrap"><input class="inp" style="flex:1;min-width:0" id="shopNew" placeholder="Legg til vare, f.eks. dopapir" autocomplete="off"><button class="btn" data-act="shopAdd">Legg til</button></div>
+   <button class="btn primary block" data-act="shopShare">Del lista</button>
+   ${Object.keys(done).length?`<button class="btn ghost block" data-act="shopClear">Fjern avkrysningene</button>`:""}
+   <div class="note">Mengdene er summen av ingrediensene i ukas retter og faste måltider. En rett regnes som hele gryter, så du lager hele oppskriften.</div>`;
+  return h;
+}
+function shopText(mon){ const st=(menuDoc().shop||{})[mon]||{}, done=st.done||{};
+  const lines=shopList(mon).filter(a=>!done[a.key]).map(a=>{ const q=shopQty(a); return `- ${a.name} ${q.txt}${q.sub?` (${q.sub})`:""}`; });
+  (st.extra||[]).filter(x=>!done["x:"+x.id]).forEach(x=>lines.push("- "+x.name));
+  return `Handleliste uke ${weekNo(mon)}\n`+lines.join("\n"); }
+
+/* the active person's planned food on the Day view */
+function plannedCard(k){ const its=plannedFor(k); if(!its.length) return "";
+  return `<section class="card plancard"><div class="flabel">Fra ukemenyen</div>${its.map(it=>{ const v=menuVal(it.ref,it.by[CUR]), s=menuSrc(it.ref);
+    return `<div class="prow2"><span class="nm"><span>${esc(s.name)}</span><small class="num">${it.slot==="matboks"?"Matboks · ":""}${esc(menuAmtText(it.ref,it.by[CUR]))} · ${r0(v.kcal)} kcal · ${r0(v.p)} g protein</small></span>
+      <button class="btn primary sm" data-act="menuLog" data-k="${k}" data-v="${it.id}">Logg</button></div>`; }).join("")}
+    <div class="note">Spiste du mer eller mindre? Logg, og trykk på retten i måltidet for å endre grammene.</div></section>`; }
+function logPlanned(k, id){ const it=(menuDay(k).items||[]).find(x=>x.id===id); if(!it) return null;
+  const s=menuSrc(it.ref), amt=it.by&&it.by[CUR]; if(!s||!(amt>0)) return null; const mk=MENU_LOGMEAL[it.slot]||"middag";
+  if(it.ref.t==="tpl") logTemplate(k, mk, {items:(s.items||[]).map(x=>({...x,g:x.g*amt}))}, false);
+  else { const v=calc(s.per,amt), d=clone(dayDoc(k)); d.kind="day"; d.date=k; d.entries=d.entries||[];
+    d.entries.push({id:uid(),meal:mk,name:s.name,g:amt,per:s.per,portion:s.portion||null,foodId:s.base?null:(s.id||null),kcal:v.kcal,p:v.p,f:v.f,c:v.c});
+    writeDoc(pk("day-")+k,d); }
+  saveMenu(m=>{ const x=(m.days[k].items||[]).find(y=>y.id===id); if(x){ x.logged=x.logged||{}; x.logged[CUR]=true; } });
+  return s.name; }
+
 function maintKcal(){
   const b=(S.docs[pk("profile")]||{}).body||{}, ws=Object.entries(weightsDoc().items||{}).sort((x,y)=>x[0]<y[0]?-1:1);
   const w=ws.length?ws[ws.length-1][1]:numIn(b.weight), h=numIn(b.height), age=numIn(b.age), act=numIn(b.act||"1.55");
@@ -1082,10 +1272,11 @@ function renderSheet(){
   else if(s.type==="product"){ title=s.id?"Endre matvare":"Ny matvare"; body=sheetProduct(s); }
   else if(s.type==="scan"){ title="Strekkode"; body=sheetScan(s); }
   else if(s.type==="estimate"){ title="Beskriv måltidet"; body=sheetEstimate(s); }
+  else if(s.type==="menuPick"){ const it=MENU_SLOTS.find(x=>x[0]===s.slot); title=`${it?it[1]:"Middag"} ${WEEKDAYS[parseKey(s.day).getDay()]} ${shortDate(s.day)}`; body=sheetMenuPick(s); }
   root.innerHTML=`<div class="scrim" data-act="close"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="sh"><h2>${esc(title)}</h2><button class="x" data-act="close" aria-label="Lukk">×</button></div><div class="sb">${body}</div></div>`;
   const nsb=root.querySelector(".sb"); if(nsb) nsb.scrollTop=scroll;
   if(keepFocus){ const el=document.getElementById(keepFocus); if(el){ el.focus(); try{ if(selStart!=null) el.setSelectionRange(selStart,selStart);}catch(e){} } }
-  updateAmountPreview(); updateGoalSum(); updateQuickHint();
+  updateAmountPreview(); updateGoalSum(); updateQuickHint(); updateMenuPreview();
   if(s.type==="pick" && !s.focused){ s.focused=true; const q=document.getElementById("q"); if(q) setTimeout(()=>q.focus(),30); }
 }
 
@@ -1501,7 +1692,7 @@ function readProductForm(){
   return {name:$("#pn").value.trim(),kcal:$("#pk").value,p:$("#pp").value,c:$("#pc").value,f:$("#pf").value,porLabel:$("#pporl").value.trim(),porG:$("#pporg").value,barcode:$("#pbc").value.replace(/\D/g,"")};
 }
 
-const UNDO_ACTS=new Set(["copyMealDo","saveAmount","saveQuick","copyY","deleteEntry","logTpl","logSlotTpl","slotLog","slotWaterOnly","addEstimate"]);
+const UNDO_ACTS=new Set(["menuLog","copyMealDo","saveAmount","saveQuick","copyY","deleteEntry","logTpl","logSlotTpl","slotLog","slotWaterOnly","addEstimate"]);
 document.addEventListener("click", async ev=>{
   const t=ev.target.closest("[data-act]"); if(!t) return;
   const a=t.dataset.act, v=t.dataset.v;
@@ -1520,6 +1711,34 @@ document.addEventListener("click", async ev=>{
   else if(a==="waterSave"){ const d=clone(dayDoc(UI.date)); d.kind="day"; d.date=UI.date; const l=numIn($("#waterL").value);
     d.waterAns="ja"; d.waterL=l>0?Math.round(l*100)/100:null; d.water=0; writeDoc(pk("day-")+UI.date,d); toast(l>0?`Lagret: ${fmt1(l)} liter vann`:"Lagret"); }
   else if(a==="close"){ closeSheet(); }
+  else if(a==="menuWeek"){ UI.menuWeek=addDays(UI.menuWeek||mondayOf(todayKey()),Number(v)); render(); }
+  else if(a==="menuAdd"){ openSheet({type:"menuPick",day:t.dataset.k,slot:v,q:"",ref:null,who:{}}); }
+  else if(a==="menuPickSel"){ const s=UI.sheet, ref={t:t.dataset.t,id:v}; s.ref=ref; s.who={};
+    const ppl = s.slot==="matboks" ? [personOf(CUR)] : people().list;
+    ppl.forEach(p=>{ s.who[p.id]=suggestAmt(ref,p.id,s.day,s.slot); }); renderSheet(); }
+  else if(a==="menuPickBack"){ UI.sheet.ref=null; UI.sheet.who={}; renderSheet(); }
+  else if(a==="menuEdit"){ const it=(menuDay(t.dataset.k).items||[]).find(x=>x.id===v); if(it){ const who={}; for(const pid in (it.by||{})) if(it.by[pid]>0) who[pid]=it.by[pid];
+    openSheet({type:"menuPick",day:t.dataset.k,slot:it.slot,ref:clone(it.ref),who,itemId:it.id}); } }
+  else if(a==="menuSave"){ const s=UI.sheet, by={}; for(const pid in s.who){ const n=numIn(s.who[pid]); if(n>0) by[pid]=n; }
+    if(!Object.keys(by).length){ toast("Velg minst én person og en mengde"); return; }
+    const src=menuSrc(s.ref); if(!src) return;
+    saveMenu(m=>{ const d=m.days[s.day]=m.days[s.day]||{items:[]}; d.items=d.items||[];
+      const old=s.itemId&&d.items.find(x=>x.id===s.itemId);
+      if(old){ old.by=by; old.ref=s.ref; old.name=src.name; }
+      else d.items.push({id:uid(),slot:s.slot,ref:s.ref,name:src.name,by,logged:{}}); });
+    const day=s.day; closeSheet(); toast(`${src.name} er lagt inn ${WEEKDAYS[parseKey(day).getDay()]}`); }
+  else if(a==="menuDel"){ const s=UI.sheet; saveMenu(m=>{ const d=m.days[s.day]; if(d) d.items=(d.items||[]).filter(x=>x.id!==s.itemId); }); closeSheet(); toast("Fjernet fra menyen"); }
+  else if(a==="menuShop"){ UI.menuView="shop"; window.scrollTo(0,0); render(); }
+  else if(a==="menuShopBack"){ UI.menuView=null; window.scrollTo(0,0); render(); }
+  else if(a==="shopTick"){ const mon=UI.menuWeek||mondayOf(todayKey()); saveMenu(m=>{ const st=m.shop[mon]=m.shop[mon]||{}; st.done=st.done||{}; if(st.done[v]) delete st.done[v]; else st.done[v]=1; }); }
+  else if(a==="shopAdd"){ const el=$("#shopNew"), nm=el?el.value.trim():""; if(!nm) return; const mon=UI.menuWeek||mondayOf(todayKey());
+    saveMenu(m=>{ const st=m.shop[mon]=m.shop[mon]||{}; st.extra=st.extra||[]; st.extra.push({id:uid(),name:nm}); }); }
+  else if(a==="shopClear"){ const mon=UI.menuWeek||mondayOf(todayKey()); saveMenu(m=>{ const st=m.shop[mon]; if(st){ st.done={}; st.extra=[]; } }); }
+  else if(a==="shopShare"){ const txt=shopText(UI.menuWeek||mondayOf(todayKey()));
+    if(window.Android&&Android.share) Android.share(txt,"Handleliste");
+    else if(navigator.share) navigator.share({title:"Handleliste",text:txt}).catch(()=>{});
+    else { try{ navigator.clipboard.writeText(txt); toast("Lista er kopiert"); }catch(e){ toast("Kunne ikke dele"); } } }
+  else if(a==="menuLog"){ const nm=logPlanned(t.dataset.k,v); if(nm) toast(`${nm} er logget`); }
   else if(a==="add"){ openSheet({type:"pick",meal:v,q:""}); }
   else if(a==="copyY"){ const src=t.dataset.k||addDays(UI.date,-1), y=dayDoc(src), d=clone(dayDoc(UI.date));
     const add=(y.entries||[]).filter(e=>e.meal===v).map(e=>({...clone(e),id:uid()}));
@@ -1733,6 +1952,8 @@ Svar KUN med JSON: {"items":[{"name":"kort norsk navn","grams":tall,"kcal":tall,
 
 document.addEventListener("input", ev=>{
   if(ev.target&&ev.target.id==="dishCooked"){ updateDishPer(); return; }
+  if(ev.target&&ev.target.id==="mq"&&UI.sheet){ UI.sheet.q=ev.target.value; renderSheet(); return; }
+  if(ev.target&&ev.target.dataset&&ev.target.dataset.mw&&UI.sheet){ UI.sheet.who[ev.target.dataset.mw]=ev.target.value; updateMenuPreview(); return; }
   const id=ev.target.id;
   if(id==="q" && UI.sheet){ UI.sheet.q=ev.target.value; renderSheet(); queueOnline(UI.sheet); }
   else if(id==="foodQ"){ const el=$("#myFoods"); if(el) el.innerHTML=myFoodsList(ev.target.value); }
@@ -1745,6 +1966,8 @@ document.addEventListener("input", ev=>{
   else if(ev.target.dataset && ev.target.dataset.whog && UI.sheet){ UI.sheet.who[ev.target.dataset.whog]=ev.target.value; }
 });
 document.addEventListener("change", ev=>{
+  if(ev.target.dataset && ev.target.dataset.mwho && UI.sheet && UI.sheet.type==="menuPick"){ const s=UI.sheet, pid=ev.target.dataset.mwho;
+    if(ev.target.checked) s.who[pid]=suggestAmt(s.ref,pid,s.day,s.slot); else delete s.who[pid]; renderSheet(); return; }
   if(ev.target.matches("[data-est]") && UI.sheet && UI.sheet.items){ UI.sheet.items[Number(ev.target.dataset.est)].on=ev.target.checked; }
   if(ev.target.id==="amtMeal" && UI.sheet) UI.sheet.meal=ev.target.value;
   if(ev.target.id==="datePick" && ev.target.value){ UI.date=ev.target.value; ev.target.style.pointerEvents="none"; render(); }
