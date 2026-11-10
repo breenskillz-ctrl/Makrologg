@@ -8,6 +8,7 @@
  *   Økter      – Loadlog: én rad per treningsdag (varighet, sett, volum, sammendrag med tagger og kommentarer, notat)
  *   Sett       – Loadlog: én rad per gjennomført sett (øvelse, vekt, reps, nivå, variant, e1RM)
  *   Kroppsmål  – Loadlog: én rad per måling (vekt, bryst, liv, armer, lår)
+ *   Oppsett    – Loadlog: én rad per person med egne programmer, blokker (1RM, hvor langt) og innstillinger
  * Endres en dag i en app, oppdateres samme rad i stedet for å lage en ny.
  * Makrologg sender med GET (?d=…), Loadlog med POST (JSON i kroppen). Begge går til samme adresse.
  *
@@ -82,6 +83,13 @@ var TABS = {
         return [r.date, r.person, s[0], s[1], n[s[0]], s[2], s[3], s[4], s[5], s[6], s[7], s[8], s[9], r.unit || '', r.pid];
       });
       if (rows.length) sh.getRange(sh.getLastRow() + 1, 1, rows.length, cols.length).setValues(rows.map(asText));
+    }
+  },
+  setup: {
+    name: 'Oppsett',
+    cols: ['Dato', 'Person', 'Mitt program', 'Programmer', 'Blokker', 'Innstillinger', 'Person-ID', 'Oppdatert'],
+    row: function (r) {
+      return [r.date, r.person, r.mine || '', r.programs || '', r.blocks || '', r.settings || '', r.pid, new Date()];
     }
   },
   morning: {
@@ -189,7 +197,7 @@ function handle(text) {
 
   // Videre til Supabase. Feiler det, svarer vi med feil, så appen prøver igjen senere
   // (regnearket tåler at samme post kommer flere ganger).
-  var sb = toSupabase(r);
+  var sb = r.t === 'setup' ? null : toSupabase(r); // oppsettet hører bare hjemme i regnearket
   if (sb && !sb.ok) return out({ ok: false, error: 'Supabase: ' + sb.error });
   return out({ ok: true, result: result, supabase: sb ? 'ok' : 'av' });
 }
