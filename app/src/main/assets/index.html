@@ -1,4 +1,4 @@
-<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="20"><title>Makrologg</title>
+<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="21"><title>Makrologg</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
 <style>
@@ -70,6 +70,8 @@ header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background
 .leftrow .ov b{color:var(--over)}
 .kline{grid-column:1/-1;display:flex;justify-content:space-between;font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:10px}
 .kline b{color:var(--fg);font-weight:600}
+.wline{grid-column:1/-1;display:flex;justify-content:space-between;gap:10px;font-size:13px;color:var(--muted);padding-top:2px}
+.wline b{color:var(--fg);font-weight:600}.wline b.good{color:var(--prot)}.wline b.bad{color:var(--over)}
 .meal{padding:0}
 .meal .mh{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;gap:8px;width:100%;border:0;background:none;text-align:left;cursor:pointer;color:inherit;font:inherit}
 .meal .mh:disabled{cursor:default}
@@ -553,6 +555,7 @@ const ICON = {
  scan:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 8V5h3M17 5h3v3M20 16v3h-3M7 19H4v-3M8 9v6M11 9v6M14 9v6M17 9v6"/></svg>',
  label:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>',
  spark:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/></svg>',
+ pot:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h16v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z"/><path d="M2 10h2M20 10h2M9 6c0-1 1-1 1-2M14 6c0-1 1-1 1-2"/></svg>',
  pen:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>'
 };
 
@@ -618,6 +621,7 @@ function viewDay(){
       <div class="center"><div class="big num">${r0(Math.abs(left))}</div><div class="small">${over?"kcal over":"kcal igjen"}</div></div></div>
     <div class="macros">${macroRow("Protein",t.p,g.p,"var(--prot)")}${macroRow("Karbohydrater",t.c,g.c,"var(--carb)")}${macroRow("Fett",t.f,g.f,"var(--fat)")}</div>
     <div class="kline"><span>Spist <b class="num">${r0(t.kcal)}</b> kcal</span><span>Mål <b class="num">${r0(g.kcal)}</b> kcal${g.extra?` <span class="num">(+${r0(g.extra)} trening)</span>`:""}</span></div>
+    ${weekLine(UI.date)}
   </section>`;
   h += planCard(UI.date);
   if(!(S.docs[pk("profile")])) h += `<section class="card"><div style="font-weight:600;margin-bottom:4px">Sett dine egne mål</div><div class="note" style="margin-bottom:10px">Målene over er standardverdier. Regn ut dine basert på vekt, høyde og aktivitet.</div><button class="btn primary" data-act="tab" data-v="mal">Regn ut mål</button></section>`;
@@ -656,6 +660,20 @@ function viewDay(){
   </section>`;
   h += backupCard();
   return h;
+}
+/* Weekly budget (Monday–Sunday): what the logged days before this one saved or overspent against their goals,
+   and what that leaves per day for the rest of the week, this day included. Days without food logged count as on goal. */
+function weekBudget(k){
+  const wd=(parseKey(k).getDay()+6)%7, mon=addDays(k,-wd);
+  let bank=0, budget=0, past=0;
+  for(let i=0;i<7;i++){ const dk=addDays(mon,i), g=goalsFor(dk).kcal; budget+=g;
+    if(i<wd){ const d=dayDoc(dk), t=totals(d); if((d.entries||[]).length){ bank+=g-t.kcal; past+=t.kcal; } else past+=g; } }
+  const left=7-wd, perDay=(budget-past)/left;
+  return {bank, perDay, left, budget};
+}
+function weekLine(k){
+  const w=weekBudget(k); if(Math.abs(w.bank)<1 && (parseKey(k).getDay()+6)%7===0) return `<div class="wline"><span>Uka (man–søn)</span><span>Budsjett <b class="num">${r0(w.budget).toLocaleString("nb-NO")}</b> kcal</span></div>`;
+  return `<div class="wline"><span>Uka: ${w.bank>=0?`<b class="num good">${r0(w.bank)}</b> kcal spart`:`<b class="num bad">${r0(-w.bank)}</b> kcal over`}</span><span>Resten av uka ≈ <b class="num">${r0(w.perDay)}</b>/dag</span></div>`;
 }
 function garminCard(k){
   const gm=(morningDoc().items||{})[k]||{}, open=!!UI.gmOpen;
@@ -837,6 +855,27 @@ function sheetTpl(){
    <button class="btn ghost block" data-act="tplAdd">+ Legg til matvare</button>
    <button class="btn primary block" data-act="tplSave">Lagre fast måltid</button>
    ${t.id&&tplById(t.id)?`<button class="btn danger block" data-act="tplRemove">Slett fast måltid</button>`:""}`;
+}
+
+/* Dishes (retter): ingredients weighed raw, the finished pot weighed once; saved as one of "Mine matvarer"
+   with values per 100 g of the finished dish, so each person just weighs their own portion. */
+function dishTotals(t){ const v={kcal:0,p:0,f:0,c:0,g:0}; t.items.forEach(i=>{ const x=calc(i.per,i.g); v.kcal+=x.kcal; v.p+=x.p; v.f+=x.f; v.c+=x.c; v.g+=i.g; }); return v; }
+function updateDishPer(){ const el=$("#dishPer"), t=UI.tplDraft; if(!el||!t||!t.dish) return;
+  t.cooked=$("#dishCooked").value; const tot=dishTotals(t), c=numIn(t.cooked)||tot.g;
+  el.innerHTML = c>0 ? macroPreview({kcal:tot.kcal*100/c,p:tot.p*100/c,f:tot.f*100/c,c:tot.c*100/c}) : ""; }
+function sheetDish(){
+  const t=UI.tplDraft, tot=dishTotals(t), cooked=numIn(t.cooked)||tot.g;
+  const per = cooked>0 ? {kcal:tot.kcal*100/cooked,p:tot.p*100/cooked,f:tot.f*100/cooked,c:tot.c*100/cooked} : null;
+  return `<div class="field"><label for="tplName">Navn på retten</label><input class="inp" id="tplName" value="${esc(t.name||"")}" placeholder="F.eks. Taco, elggryte, pizza"></div>
+   <div class="note">Legg inn alt som går i gryta, veid rått. Ta med olje, smør og saus.</div>
+   ${t.items.length?`<div class="list">${t.items.map((i,n)=>{const v=calc(i.per,i.g);return `<div class="tplrow"><button data-act="tplItem" data-v="${n}"><span class="nm">${esc(i.name)}<br><small class="num">${r0(i.g)} g · ${r0(v.kcal)} kcal</small></span></button><button class="x" data-act="tplDel" data-v="${n}" aria-label="Fjern ${esc(i.name)}">×</button></div>`}).join("")}</div>
+     <div class="kline num"><span>Hele retten <b>${r0(tot.kcal)}</b> kcal · P <b>${r0(tot.p)}</b> g</span><span>Råvarer <b>${r0(tot.g)}</b> g</span></div>`:""}
+   <button class="btn ghost block" data-act="tplAdd">+ Legg til ingrediens</button>
+   <div class="field"><label for="dishCooked">Vekt på ferdig rett (gram)</label><input class="inp num" id="dishCooked" inputmode="decimal" value="${esc(t.cooked??"")}" placeholder="${t.items.length?r0(tot.g)+" (summen av råvarene)":"vei gryta minus vekta på gryta"}"></div>
+   <div class="note">Vei gryta med maten og trekk fra vekta på den tomme gryta. Står feltet tomt, brukes summen av råvarene.</div>
+   ${t.items.length?`<div class="sect">Per 100 g ferdig rett</div><div id="dishPer">${per?macroPreview(per):""}</div>`:""}
+   <button class="btn primary block" data-act="dishSave">Lagre rett</button>
+   ${t.id&&foodsDoc().items&&foodsDoc().items[t.id]?`<button class="btn danger block" data-act="dishRemove">Slett retten</button>`:""}`;
 }
 
 function maintKcal(){
@@ -1032,11 +1071,11 @@ function renderSheet(){
   const keepFocus=document.activeElement&&document.activeElement.id, selStart=document.activeElement&&document.activeElement.selectionStart;
   const sb=root.querySelector(".sb"), scroll=sb?sb.scrollTop:0;
   let title="", body="";
-  if(s.type==="pick"){ title=s.meal==="tpl"?"Legg til i fast måltid":"Legg til i "+meal(s.meal).toLowerCase(); body=sheetPick(s); }
+  if(s.type==="pick"){ title=s.meal==="tpl"?(UI.tplDraft&&UI.tplDraft.dish?"Legg til i retten":"Legg til i fast måltid"):"Legg til i "+meal(s.meal).toLowerCase(); body=sheetPick(s); }
   else if(s.type==="person"){ title=s.id?"Endre person":"Ny person"; body=sheetPerson(s); }
   else if(s.type==="quick"){ title=s.entryId?"Endre hurtiglogg":"Hurtiglogg"; body=sheetQuick(s); }
   else if(s.type==="slot"){ title=meal(s.slot)+(s.at?" kl "+hhmm(s.at):""); body=sheetSlot(s); }
-  else if(s.type==="tpl"){ title=UI.tplDraft.id&&tplById(UI.tplDraft.id)?"Endre fast måltid":"Nytt fast måltid"; body=sheetTpl(); }
+  else if(s.type==="tpl"){ title=UI.tplDraft.dish?(UI.tplDraft.id?"Endre rett":"Ny rett"):UI.tplDraft.id&&tplById(UI.tplDraft.id)?"Endre fast måltid":"Nytt fast måltid"; body=UI.tplDraft.dish?sheetDish():sheetTpl(); }
   else if(s.type==="copyMeal"){ title=s.mk==="*"?"Kopier hele dagen":meal(s.mk)+": kopier"; body=sheetCopyMeal(s); }
   else if(s.type==="weight"){ title="Endre vekt"; body=sheetWeight(s); }
   else if(s.type==="amount"){ title=s.entryId?"Endre":"Mengde"; body=sheetAmount(s); }
@@ -1174,6 +1213,7 @@ function sheetPick(s){
     <div class="qtools">
     <button class="qtool" data-act="scan">${ICON.scan}<span>Skann</span></button>
     <button class="qtool" data-act="quick">${ICON.bolt}<span>Hurtiglogg</span></button>
+    ${s.meal!=="tpl"?`<button class="qtool" data-act="newDish">${ICON.pot}<span>Ny rett</span></button>`:""}
     ${ai?`<button class="qtool" data-act="labelPhoto">${ICON.label}<span>Etikett</span></button>`:""}
     ${ai?`<button class="qtool" data-act="estimate">${ICON.spark}<span>Beskriv</span></button>`:""}
     <button class="qtool" data-act="newProduct">${ICON.pen}<span>Ny matvare</span></button></div>`;
@@ -1213,7 +1253,8 @@ function sheetAmount(s){
    ${whoRows(s)}
    <button class="btn primary block" data-act="saveAmount">${s.meal==="tpl"?(s.tplIndex!=null?"Lagre endring":"Legg til i måltidet"):s.entryId?"Lagre endring":"Legg til"}</button>
    ${s.entryId?`<button class="btn danger block" data-act="deleteEntry">Slett fra dagen</button>`:""}
-   ${f.id&&!f.base&&foodsDoc().items&&foodsDoc().items[f.id]?`<button class="btn ghost block" data-act="editProduct" data-v="${esc(f.id)}">Feil vare eller verdier? Endre varen</button>`:""}`;
+   ${f.id&&!f.base&&foodsDoc().items&&foodsDoc().items[f.id]&&foodsDoc().items[f.id].dish&&s.meal!=="tpl"?`<button class="btn ghost block" data-act="editDish" data-v="${esc(f.id)}">Ny gryte eller endret oppskrift? Endre retten</button>`
+     :f.id&&!f.base&&foodsDoc().items&&foodsDoc().items[f.id]?`<button class="btn ghost block" data-act="editProduct" data-v="${esc(f.id)}">Feil vare eller verdier? Endre varen</button>`:""}`;
 }
 function updateAmountPreview(){
   const el=$("#amtPrev"); if(!el||!UI.sheet||UI.sheet.type!=="amount") return;
@@ -1596,14 +1637,25 @@ document.addEventListener("click", async ev=>{
   else if(a==="saveAsTpl"){ const es=(dayDoc(UI.date).entries||[]).filter(e=>e.meal===v);
     UI.tplDraft={id:"",name:"Min "+meal(v).toLowerCase(),items:es.map(e=>e.quick?{name:e.name,g:100,per:{kcal:e.kcal,p:e.p,f:e.f,c:e.c},portion:null,foodId:null}:({name:e.name,g:e.g,per:e.per||{kcal:e.kcal/e.g*100,p:e.p/e.g*100,f:e.f/e.g*100,c:e.c/e.g*100},portion:e.portion||null,foodId:e.foodId||null}))};
     openSheet({type:"tpl"}); }
-  else if(a==="tplAdd"){ UI.tplDraft.name=$("#tplName").value; UI.addTarget="tpl"; openSheet({type:"pick",meal:"tpl",q:""}); }
-  else if(a==="tplItem"){ const i=UI.tplDraft.items[Number(v)]; UI.tplDraft.name=$("#tplName").value; UI.addTarget="tpl";
+  else if(a==="tplAdd"){ UI.tplDraft.name=$("#tplName").value; if($("#dishCooked")) UI.tplDraft.cooked=$("#dishCooked").value; UI.addTarget="tpl"; openSheet({type:"pick",meal:"tpl",q:""}); }
+  else if(a==="tplItem"){ const i=UI.tplDraft.items[Number(v)]; UI.tplDraft.name=$("#tplName").value; if($("#dishCooked")) UI.tplDraft.cooked=$("#dishCooked").value; UI.addTarget="tpl";
     openAmount({id:i.foodId,name:i.name,per:i.per,portion:i.portion,base:!i.foodId},"tpl",{g:i.g,tplIndex:Number(v)}); }
   else if(a==="tplDel"){ UI.tplDraft.name=$("#tplName").value; UI.tplDraft.items.splice(Number(v),1); renderSheet(); }
   else if(a==="tplSave"){ const t=UI.tplDraft; t.name=$("#tplName").value.trim();
     if(!t.name){ toast("Gi måltidet et navn"); return; } if(!t.items.length){ toast("Legg til minst én matvare"); return; }
     const md=clone(mealsDoc()); md.kind="meals"; md.items=md.items||{}; const id=t.id||"m"+uid();
     md.items[id]={id,name:t.name,items:t.items}; UI.addTarget=null; UI.tplDraft=null; UI.sheet=null; renderSheet(); writeDoc("meals",md); toast("Fast måltid lagret"); }
+  else if(a==="newDish"){ UI.tplDraft={id:"",name:"",items:[],dish:true,cooked:"",meal:UI.sheet&&UI.sheet.meal!=="tpl"?UI.sheet.meal:guessMeal()}; openSheet({type:"tpl"}); }
+  else if(a==="editDish"){ const f=(foodsDoc().items||{})[v]; if(f&&f.dish){ UI.tplDraft={id:f.id,name:f.name,items:clone(f.dish.items),dish:true,cooked:f.dish.cooked||"",meal:UI.sheet&&UI.sheet.meal!=="tpl"?UI.sheet.meal:guessMeal()}; openSheet({type:"tpl"}); } }
+  else if(a==="dishSave"){ const t=UI.tplDraft; t.name=$("#tplName").value.trim(); t.cooked=$("#dishCooked").value;
+    if(!t.name){ toast("Gi retten et navn"); return; } if(!t.items.length){ toast("Legg til minst én ingrediens"); return; }
+    const tot=dishTotals(t), cooked=numIn(t.cooked)||tot.g; if(cooked<=0){ toast("Skriv inn vekta på den ferdige retten"); return; }
+    const fd=clone(foodsDoc()); fd.kind="foods"; fd.items=fd.items||{}; const id=t.id||"d"+uid();
+    const food={id,name:t.name,per:{kcal:r1(tot.kcal*100/cooked),p:r1(tot.p*100/cooked),f:r1(tot.f*100/cooked),c:r1(tot.c*100/cooked)},
+      portion:{label:"Hele retten",g:r0(cooked)},barcode:null,source:"rett",dish:{items:t.items,cooked:r0(cooked),made:Date.now()},updated:Date.now()};
+    fd.items[id]=food; writeDoc("foods",fd); const mk=t.meal; UI.addTarget=null; UI.tplDraft=null;
+    toast("Retten er lagret – vei porsjonen din"); openAmount(food, mk); }
+  else if(a==="dishRemove"){ const fd=clone(foodsDoc()); delete fd.items[UI.tplDraft.id]; UI.addTarget=null; UI.tplDraft=null; UI.sheet=null; renderSheet(); writeDoc("foods",fd); toast("Retten er slettet"); }
   else if(a==="tplRemove"){ const md=clone(mealsDoc()); delete md.items[UI.tplDraft.id]; UI.addTarget=null; UI.tplDraft=null; UI.sheet=null; renderSheet(); writeDoc("meals",md); toast("Fast måltid slettet"); }
   else if(a==="notifSettings"){ if(window.Android&&Android.openNotifSettings) Android.openNotifSettings(); }
   else if(a==="installUpdate"){ if(window.Android&&Android.installUpdate){ UPD.status="progress"; UPD.pct=0; render(); Android.installUpdate(); } }
@@ -1680,6 +1732,7 @@ Svar KUN med JSON: {"items":[{"name":"kort norsk navn","grams":tall,"kcal":tall,
 });
 
 document.addEventListener("input", ev=>{
+  if(ev.target&&ev.target.id==="dishCooked"){ updateDishPer(); return; }
   const id=ev.target.id;
   if(id==="q" && UI.sheet){ UI.sheet.q=ev.target.value; renderSheet(); queueOnline(UI.sheet); }
   else if(id==="foodQ"){ const el=$("#myFoods"); if(el) el.innerHTML=myFoodsList(ev.target.value); }
