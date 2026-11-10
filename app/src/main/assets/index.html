@@ -150,6 +150,13 @@ header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background
 .kbal div{background:var(--surface-2);border-radius:12px;padding:10px 4px;display:flex;flex-direction:column}
 .kbal b{font-family:var(--display);font-size:20px}
 .kbal span{font-size:12px;color:var(--muted)}
+.goalline{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;border:0;background:var(--surface);color:var(--fg);border-radius:14px;padding:11px 16px;font:inherit;font-size:14px;text-align:left;margin-bottom:10px}
+.goalline b{font-size:13px;white-space:nowrap}
+.gbox{display:flex;flex-direction:column;gap:8px;background:var(--surface-2);border-radius:12px;padding:12px}
+.gnums{display:grid;grid-template-columns:repeat(3,1fr);text-align:center}
+.gnums div{display:flex;flex-direction:column}
+.gnums b{font-family:var(--display);font-size:20px}
+.gnums span{font-size:12px;color:var(--muted)}
 .qk-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .meal h3{margin:0;font-family:var(--display);font-weight:600;font-size:17px}
 .meal .mk{font-size:13px;color:var(--muted)}
@@ -661,6 +668,7 @@ function viewDay(){
     <div class="kline"><span>Spist <b class="num">${r0(t.kcal)}</b> kcal</span><span>Mål <b class="num">${r0(g.kcal)}</b> kcal${g.extra?` <span class="num">(+${r0(g.extra)} trening)</span>`:""}</span></div>
     ${weekLine(UI.date)}
   </section>`;
+  h += goalLine();
   h += planCard(UI.date);
   h += plannedCard(UI.date);
   if(!(S.docs[pk("profile")])) h += `<section class="card"><div style="font-weight:600;margin-bottom:4px">Sett dine egne mål</div><div class="note" style="margin-bottom:10px">Målene over er standardverdier. Regn ut dine basert på vekt, høyde og aktivitet.</div><button class="btn primary" data-act="tab" data-v="mal">Regn ut mål</button></section>`;
@@ -1132,6 +1140,37 @@ function weightTrend(ws){
   const num=pts.reduce((a,p)=>a+(p[0]-mx)*(p[1]-my),0), den=pts.reduce((a,p)=>a+(p[0]-mx)**2,0);
   return den? num/den*7 : null;
 }
+function goalPlan(){
+  const prof=S.docs[pk("profile")]||{}, target=prof.targetWeight, td=prof.targetDate, t=todayKey();
+  const ws=Object.entries(weightsDoc().items||{}).sort((a,b)=>a[0]<b[0]?-1:1);
+  if(!target||!td||!ws.length) return null;
+  const recent=ws.filter(([k])=>k>=addDays(ws[ws.length-1][0],-6)), cur=recent.reduce((a,x)=>a+x[1],0)/recent.length;
+  const days=Math.round((parseKey(td)-parseKey(t))/864e5), left=cur-target, rate=weightTrend(ws);
+  if(Math.abs(left)<0.3) return {done:true,target,td,cur,days};
+  if(days<=0) return {past:true,target,td,cur,left,days};
+  const need=-left/days*7, kcal=left*7700/days;
+  let status="nodata";
+  if(rate!=null){ const proj=cur+rate*days/7; status = (left>0? proj<=target+0.3 : proj>=target-0.3) ? "ok" : (Math.sign(rate)===Math.sign(need)&&Math.abs(rate)>=Math.abs(need)*0.6 ? "near" : "behind"); }
+  return {target,td,cur,left,days,need,kcal,rate,status};
+}
+function goalBox(){
+  const g=goalPlan(); if(!g) return "";
+  if(g.done) return `<div class="gbox"><b>Du har nådd målvekten.</b></div>`;
+  if(g.past) return `<div class="gbox">Måldatoen er passert. Velg en ny dato.</div>`;
+  const dir=g.left>0?"ned":"opp", rs=g.rate!=null?`${g.rate>0?"+":""}${fmt1(g.rate)} kg i uka`:null;
+  const st={ok:["Du er i rute.","var(--ok)"],near:["Du er litt bak skjema.","var(--fat)"],behind:["Du er bak skjema.","var(--over)"],nodata:["Logg vekten et par uker, så ser du om du er i rute.","var(--muted)"]}[g.status];
+  return `<div class="gbox"><div class="gnums"><div><b class="num">${fmt1(Math.abs(g.left))}</b><span>kg ${dir}</span></div><div><b class="num">${g.days}</b><span>dager igjen</span></div><div><b class="num">${fmt1(Math.abs(g.need))}</b><span>kg i uka</span></div></div>
+    <div class="note">Det tilsvarer ca. <b>${r0(Math.abs(g.kcal))} kcal ${g.left>0?"underskudd":"overskudd"} per dag</b>.${rs?` Trenden din nå: ${rs}.`:""} Utgangspunktet er snittet av siste ukes veiinger (${fmt1(g.cur)} kg).</div>
+    <div style="font-weight:700;color:${st[1]}">${st[0]}</div></div>`;
+}
+function goalLine(){
+  const g=goalPlan(); if(!g||UI.date!==todayKey()) return "";
+  const d=parseKey(g.td), dl=`${d.getDate()}. ${MON[d.getMonth()]}`;
+  const st={ok:["I rute","var(--ok)"],near:["Litt bak","var(--fat)"],behind:["Bak skjema","var(--over)"],nodata:["",""]}[g.status||"nodata"];
+  const txt = g.done?`Du har nådd ${fmt1(g.target)} kg`:g.past?`Måldatoen ${dl} er passert · ${fmt1(Math.abs(g.left))} kg igjen`
+    :`${fmt1(g.target)} kg innen ${dl}: ${fmt1(Math.abs(g.left))} kg igjen · ${g.days} dager`;
+  return `<button class="goalline" data-act="tab" data-v="mal"><span>${txt}</span>${st[0]?`<b style="color:${st[1]}">${st[0]}</b>`:""}</button>`;
+}
 function weightSection(){
   const ws=Object.entries(weightsDoc().items||{}).sort((a,b)=>a[0]<b[0]?-1:1);
   const prof=(S.docs[pk("profile")]||{}), target=prof.targetWeight||null, t=todayKey();
@@ -1160,9 +1199,10 @@ function weightSection(){
   const rows=ws.slice().reverse(), shown=UI.allW?rows:rows.slice(0,5);
   return `<section class="card" style="display:flex;flex-direction:column;gap:10px">
     <div class="row" style="flex-wrap:nowrap"><input class="inp num" id="wIn" inputmode="decimal" placeholder="kg" style="flex:1;min-width:0"><input class="inp num" type="date" id="wDate" value="${t}" max="${t}" aria-label="Dato" style="flex:1.4;min-width:0"><button class="btn primary" data-act="logWeight">Logg</button></div>
-    <div class="row"><label for="wTarget" class="note">Målvekt</label><input class="inp num" id="wTarget" inputmode="decimal" value="${target?fmt1(target):""}" placeholder="kg" style="width:96px;padding:8px 10px"><span class="note">kg</span></div>
+    <div class="row"><label for="wTarget" class="note">Målvekt</label><input class="inp num" id="wTarget" inputmode="decimal" value="${target?fmt1(target):""}" placeholder="kg" style="width:70px;padding:8px 10px"><span class="note">kg innen</span><input class="inp num" type="date" id="wTargetDate" value="${prof.targetDate||""}" min="${addDays(t,1)}" aria-label="Måldato" style="flex:1;min-width:0;padding:8px 10px"></div>
+    ${goalBox()}
     ${last?`<div class="note num">Siste: <b>${fmt1(last[1])} kg</b> (${dateLabel(last[0]).toLowerCase()})${rs?` · trend ${rs}`:""}</div>`:`<div class="note">Logg vekten en gang i uka, gjerne om morgenen.</div>`}
-    ${est?`<div class="note">${est}</div>`:""}
+    ${est&&!goalPlan()?`<div class="note">${est}</div>`:""}
     ${chart}
     ${rows.length?`<div class="wlist">${shown.map(([k,v])=>{ const ix=rows.findIndex(r=>r[0]===k), prev=rows[ix+1], dv=prev?v-prev[1]:null;
       return `<button data-act="editWeight" data-v="${k}"><span>${dateLabel(k)}</span><span class="num"><b>${fmt1(v)} kg</b>${dv!=null?` <small>${dv>0?"+":""}${fmt1(dv)}</small>`:""}</span></button>`; }).join("")}</div>
@@ -1972,6 +2012,7 @@ document.addEventListener("change", ev=>{
   if(ev.target.id==="amtMeal" && UI.sheet) UI.sheet.meal=ev.target.value;
   if(ev.target.id==="datePick" && ev.target.value){ UI.date=ev.target.value; ev.target.style.pointerEvents="none"; render(); }
   if(ev.target.matches("[data-pl]")) savePlanForm();
+  if(ev.target.id==="wTargetDate"){ const pr=clone(S.docs[pk("profile")]||{kind:"profile"}); pr.kind="profile"; pr.targetDate=ev.target.value||null; writeDoc(pk("profile"),pr); }
   if(ev.target.id==="wTarget"){ const pr=clone(S.docs[pk("profile")]||{kind:"profile"}); pr.kind="profile"; const v=numIn(ev.target.value); pr.targetWeight = v>=20&&v<=400 ? v : null; writeDoc(pk("profile"),pr); toast(pr.targetWeight?`Målvekt: ${fmt1(v)} kg`:"Målvekt fjernet"); }
   if(ev.target.dataset && ev.target.dataset.cm && UI.sheet && UI.sheet.to){ UI.sheet.to[ev.target.dataset.cm]=ev.target.checked; }
   if(ev.target.dataset && ev.target.dataset.who && UI.sheet){ const pid=ev.target.dataset.who, s=UI.sheet; s.who=s.who||{};
