@@ -9,6 +9,7 @@
  *   Sett       – Loadlog: én rad per gjennomført sett (øvelse, vekt, reps, nivå, variant, e1RM)
  *   Kroppsmål  – Loadlog: én rad per måling (vekt, bryst, liv, armer, lår)
  *   Oppsett    – Loadlog: én rad per person med egne programmer, blokker (1RM, hvor langt) og innstillinger
+ * Loadlog kan også lese de siste dagene fra Garmin-fanen (GET ?read=garmin&pid=p0) for å vise dagsform.
  * Endres en dag i en app, oppdateres samme rad i stedet for å lage en ny.
  * Makrologg sender med GET (?d=…), Loadlog med POST (JSON i kroppen). Begge går til samme adresse.
  *
@@ -169,6 +170,7 @@ function upsert(tab, r) {
 function doGet(e) {
   var p = (e && e.parameter) || {};
   if (p.ping) return out({ ok: true, ping: true });
+  if (p.read === 'garmin') return out({ ok: true, rows: garminRows(String(p.pid || 'p0'), 10) }); // Loadlog: dagsform
   if (!p.d) return out({ ok: false, error: 'mangler data' });
   return handle(p.d);
 }
@@ -226,6 +228,25 @@ function toSupabase(r) {
   } catch (err) {
     return { ok: false, error: String(err).slice(0, 200) };
   }
+}
+
+// De siste n dagene fra Garmin-fanen for én person, nyeste først (nyeste «Oppdatert» vinner per dato)
+function garminRows(pid, n) {
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Garmin');
+  if (!sh || sh.getLastRow() < 2) return [];
+  var data = sh.getDataRange().getValues(), head = data[0], col = {};
+  head.forEach(function (h, i) { col[h] = i; });
+  var byDate = {};
+  for (var i = 1; i < data.length; i++) {
+    var r = data[i];
+    if (String(r[col['Person-ID']]) !== pid) continue;
+    var d = dkey(r[0]), up = r[col['Oppdatert']];
+    var t = up instanceof Date ? up.getTime() : 0;
+    if (byDate[d] && byDate[d].t > t) continue;
+    byDate[d] = { t: t, row: { date: d, sleep: r[col['Søvnscore']], bb: r[col['Body battery']], rhr: r[col['Hvilepuls']],
+      hrv: r[col['HRV']], sleepH: r[col['Søvn (t)']], stress: r[col['Stress']], note: r[col['Notat']] } };
+  }
+  return Object.keys(byDate).sort().reverse().slice(0, n).map(function (d) { return byDate[d].row; });
 }
 
 /**
