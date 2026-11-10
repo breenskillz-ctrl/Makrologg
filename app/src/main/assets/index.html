@@ -1,4 +1,4 @@
-<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="16"><title>Makrologg</title>
+<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="17"><title>Makrologg</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
 <style>
@@ -122,6 +122,21 @@ header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background
 .qtools::-webkit-scrollbar{display:none}
 .qtool{flex:1 0 auto;display:flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 12px;font-weight:600;font-size:13px;color:var(--fg)}
 .qtool svg{width:18px;height:18px;color:var(--accent)}
+.mh2{display:flex;align-items:center;padding-right:12px}
+.mh2 .mh{flex:1;min-width:0}
+.mtools{display:flex;flex-wrap:wrap;gap:6px 16px;justify-content:flex-end;padding:6px 16px 4px}
+.stepper{display:flex;align-items:center;gap:10px}
+.stepper button{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--surface);font-size:22px;line-height:1;color:var(--fg)}
+.stepper .cv{min-width:56px;text-align:center;font-family:var(--display);font-size:24px;font-weight:800}
+.chip.on{border-color:var(--accent);background:var(--accent-soft)}
+.wlist{display:flex;flex-direction:column}
+.wlist button{border:0;background:none;color:var(--fg);display:flex;justify-content:space-between;align-items:center;padding:10px 2px;border-top:1px solid var(--line);font:inherit;text-align:left}
+.wlist button:first-child{border-top:0}
+.wlist small{color:var(--muted)}
+.gmhead{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;border:0;background:none;color:var(--fg);font:inherit;text-align:left;padding:0;cursor:pointer}
+.gmhead .chev{flex-shrink:0;width:20px;height:20px}
+.gmcard.open .chev{transform:rotate(180deg)}
+.bkcard{display:flex;flex-direction:column;gap:10px;border:1px dashed var(--line);background:transparent;box-shadow:none}
 .qk-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .meal h3{margin:0;font-family:var(--display);font-weight:600;font-size:17px}
 .meal .mk{font-size:13px;color:var(--muted)}
@@ -366,7 +381,7 @@ function daySchedule(k){
   return out.sort((a,b)=>a.at-b.at);
 }
 function trainExtra(k){ const t=dayDoc(k).train||{}; return t.extra!=null ? Number(t.extra)||0 : Number(plan().pre.extraKcal)||0; }
-function goalsFor(k){ const g=goals(); if(isTraining(k)){ const x=trainExtra(k); g.kcal+=x; g.c+=x*0.7/4; g.p+=x*0.3/4; g.extra=x; } return g; }
+function goalsFor(k){ const g=goals(); if(isTraining(k)){ const x=trainExtra(k); g.kcal+=x; g.c+=x/4; g.extra=x; } return g; }
 const tplTotals = t => (t.items||[]).reduce((a,i)=>{ const v=calc(i.per,i.g); a.kcal+=v.kcal;a.p+=v.p;a.f+=v.f;a.c+=v.c; return a; },{kcal:0,p:0,f:0,c:0});
 const tplById = id => id ? (mealsDoc().items||{})[id] : null;
 function fmtDur(ms){ const m=Math.round(Math.abs(ms)/60000), h=Math.floor(m/60), r=m%60; return h?`${h} t${r?` ${r} min`:""}`:`${r} min`; }
@@ -532,7 +547,7 @@ const ICON = {
 
 function render(){
   // tabs
-  $("#tabs").innerHTML = [["dag","Dag",ICON.day],["plan","Plan",ICON.label],["tider","Tider",ICON.clock],["hist","Historikk",ICON.hist],["mal","Kropp",ICON.goal]]
+  $("#tabs").innerHTML = [["dag","Dag",ICON.day],["tider","Tider",ICON.clock],["hist","Historikk",ICON.hist],["mal","Kropp",ICON.goal]]
     .map(([k,l,i])=>`<button data-act="tab" data-v="${k}" class="${UI.tab===k?"on":""}">${i}${l}</button>`).join("");
   $("#datenav").innerHTML = UI.tab==="dag" ? `<button data-act="day" data-v="-1" aria-label="Forrige dag">‹</button><button class="dlabel" data-act="pickDate" aria-label="Velg dato: ${dateLabel(UI.date)}">${dateLabel(UI.date)}</button><button data-act="day" data-v="1" aria-label="Neste dag">›</button>` : "";
   const gb=$("#gearBtn"); if(gb) gb.classList.toggle("on", UI.tab==="innst");
@@ -541,7 +556,7 @@ function render(){
   if(UI.tab==="innst"){ m.innerHTML = viewSettings(); return; }
   if(UI.tab==="dag") m.innerHTML = pb + updateBanner() + viewDay();
   else if(UI.tab==="hist") m.innerHTML = pb + viewHist();
-  else if(UI.tab==="plan") m.innerHTML = pb + viewPlan();
+  else if(UI.tab==="plan"){ UI.tab="innst"; m.innerHTML = viewSettings(); }
   else if(UI.tab==="tider") m.innerHTML = pb + viewTider();
   else m.innerHTML = pb + viewGoals();
 }
@@ -569,7 +584,7 @@ function personBar(){
   return `<nav class="pbar" aria-label="Velg person">${people().list.map(p=>{
     const left = withPerson(p.id, ()=> goalsFor(UI.date).kcal - totals(dayDoc(UI.date)).kcal);
     return `<button class="pchip ${p.id===CUR?"on":""}" data-act="person" data-v="${p.id}" aria-pressed="${p.id===CUR}"><span class="dot" style="background:${pcolor(p)}"></span><span class="pn">${esc(p.name)}</span>${UI.tab==="dag"?`<small class="num ${left<0?"ov":""}">${left<0?"+"+r0(-left)+" over":r0(left)+" igjen"}</small>`:""}</button>`;
-  }).join("")}<button class="pchip add" data-act="newPerson" aria-label="Legg til person">+</button></nav>`;
+  }).join("")}</nav>`;
 }
 function macroRow(label,val,goal,color){
   const pct=Math.min(100, goal? val/goal*100:0);
@@ -613,29 +628,49 @@ function viewDay(){
     const tp=at[mk]&&!es.length?tplById(at[mk].tpl):null;
     const open=!!(UI.openMeals&&UI.openMeals[mk]);
     const sm=es.reduce((a,e)=>{a.p+=e.p;a.c+=e.c;a.f+=e.f;return a;},{p:0,c:0,f:0});
-    h += `<section class="card meal ${nx&&nx.meal===mk?"next":""} ${open&&es.length?"open":""}"><button class="mh" data-act="toggleMeal" data-v="${mk}" ${es.length?`aria-expanded="${open}"`:"disabled"}><span class="mt"><h3>${ml}</h3></span><span class="mr"><span class="mk num">${es.length?r0(kc)+" kcal":""}</span>${es.length?`<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>`:""}</span></button>
+    const others=people().list.filter(x=>x.id!==CUR);
+    h += `<section class="card meal ${nx&&nx.meal===mk?"next":""} ${open&&es.length?"open":""}"><div class="mh2"><button class="mh" data-act="toggleMeal" data-v="${mk}" ${es.length?`aria-expanded="${open}"`:"disabled"}><span class="mt"><h3>${ml}</h3></span><span class="mr"><span class="mk num">${es.length?r0(kc)+" kcal":""}</span>${es.length?`<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>`:""}</span></button><button class="btn primary plus" data-act="add" data-v="${mk}" aria-label="Legg til i ${ml.toLowerCase()}">+</button></div>
       ${es.length&&!open?`<div class="msum num">${es.length} ${es.length===1?"ting":"ting"} · P ${r0(sm.p)} g · K ${r0(sm.c)} g · F ${r0(sm.f)} g</div>`:""}
-      ${tp?`<div class="fixed">Fast: ${esc(tp.name)} · ${r0(tplTotals(tp).kcal)} kcal</div>`:""}
-      ${es.length&&open?`<div class="mtools"><button class="link sm" data-act="saveAsTpl" data-v="${mk}">Lagre som fast måltid</button></div><ul>${es.map(e=>`<li data-act="editEntry" data-v="${e.id}"><div class="nm"><div>${esc(e.name)}${e.est?'<span class="tag">anslag</span>':""}${e.quick?'<span class="tag">hurtig</span>':""}</div><small class="num">${e.quick?"":r0(e.g)+" g · "}P ${fmt1(e.p)} · K ${fmt1(e.c)} · F ${fmt1(e.f)}</small></div><div class="kc num">${r0(e.kcal)}</div></li>`).join("")}</ul>`:""}
-      <div class="mf">${tp?`<button class="btn primary" data-act="logSlotTpl" data-v="${mk}">Logg fast måltid</button>${copyBtn}<button class="btn ghost" data-act="add" data-v="${mk}">Noe annet</button>`
-        :`<button class="btn primary" data-act="add" data-v="${mk}">+ Legg til</button>${copyBtn}`}</div></section>`;
+      ${es.length&&open?`<div class="mtools">${last&&!sameAlready?`<button class="link sm" data-act="copyY" data-v="${mk}" data-k="${last.k}">+ Samme som ${last.label} (${r0(last.kcal)} kcal)</button>`:""}${others.length?`<button class="link sm" data-act="copyMeal" data-v="${mk}">Kopier til ${others.length===1?esc(others[0].name):"andre"}</button>`:""}<button class="link sm" data-act="saveAsTpl" data-v="${mk}">Lagre som fast</button></div><ul>${es.map(e=>`<li data-act="editEntry" data-v="${e.id}"><div class="nm"><div>${esc(e.name)}${e.est?'<span class="tag">anslag</span>':""}${e.quick?'<span class="tag">hurtig</span>':""}</div><small class="num">${e.quick?"":r0(e.g)+" g · "}P ${r0(e.p)} · K ${r0(e.c)} · F ${r0(e.f)}</small></div><div class="kc num">${r0(e.kcal)}</div></li>`).join("")}</ul>`:""}
+      </section>`;
   }
   const ws=waterState(d);
   h += `<section class="card wq"><div class="prow"><b>Drukket vann${UI.date===todayKey()?" i dag":""}?</b>
       <div class="seg" role="group" aria-label="Drukket vann"><button data-act="waterAns" data-v="ja" class="${ws.ans==="ja"?"on":""}">Ja</button><button data-act="waterAns" data-v="nei" class="${ws.ans==="nei"?"on":""}">Nei</button></div></div>
     ${ws.ans==="ja"?`<div class="row"><label for="waterL" class="note">Hvor mye?</label><input class="inp num" id="waterL" inputmode="decimal" value="${ws.l!=null?fmt1(ws.l):""}" placeholder="valgfritt" style="width:96px;padding:8px 10px"><span class="note">liter</span><button class="btn sm" data-act="waterSave">Lagre</button></div>`:""}
   </section>`;
+  h += garminCard(UI.date) + backupCard();
   return h;
+}
+function garminCard(k){
+  const gm=(morningDoc().items||{})[k]||{}, open=!!UI.gmOpen;
+  const parts=[gm.sleep!=null?`Søvn ${gm.sleep}`:"",gm.bb!=null?`BB ${gm.bb}`:"",gm.rhr!=null?`Puls ${gm.rhr}`:"",gm.hrv!=null?`HRV ${gm.hrv}`:""].filter(Boolean);
+  const status = Object.keys(gm).length ? (parts.join(" · ")||"Fylt ut") : "Ikke fylt ut";
+  return `<section class="card gmcard ${open?"open":""}" style="display:flex;flex-direction:column;gap:10px">
+    <button class="gmhead" data-act="gmToggle" aria-expanded="${open}"><span><b>Garmin${k===todayKey()?" i dag":""}</b><br><small class="note num">${esc(status)}</small></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+    ${open?`<div class="grid2"><div class="field"><label for="gmSleep">Søvnscore</label><input class="inp num" id="gmSleep" inputmode="numeric" value="${esc(gm.sleep??"")}" placeholder="0–100"></div>
+    <div class="field"><label for="gmBb">Body battery (morgen)</label><input class="inp num" id="gmBb" inputmode="numeric" value="${esc(gm.bb??"")}" placeholder="0–100"></div>
+    <div class="field"><label for="gmRhr">Hvilepuls</label><input class="inp num" id="gmRhr" inputmode="numeric" value="${esc(gm.rhr??"")}" placeholder="slag/min"></div>
+    <div class="field"><label for="gmHrv">HRV (natt)</label><input class="inp num" id="gmHrv" inputmode="numeric" value="${esc(gm.hrv??"")}" placeholder="ms"></div>
+    <div class="field"><label for="gmSleepH">Søvn (timer)</label><input class="inp num" id="gmSleepH" inputmode="decimal" value="${esc(gm.sleepH!=null?fmt1(gm.sleepH):"")}" placeholder="7,5"></div>
+    <div class="field"><label for="gmStress">Stress (snitt)</label><input class="inp num" id="gmStress" inputmode="numeric" value="${esc(gm.stress??"")}" placeholder="0–100"></div></div>
+    <div class="field"><label for="gmNote">Notat</label><input class="inp" id="gmNote" value="${esc(gm.note||"")}" placeholder="Energi, sårhet, sult …"></div>
+    <button class="btn primary block" data-act="logGarmin">Lagre</button>`:""}</section>`;
+}
+function backupInfo(){ const st=S.docs.settings||{}; const last=st.lastBackup||0; const days=last?Math.floor((Date.now()-last)/864e5):null; return {last,days,snooze:st.backupSnooze||0}; }
+function backupCard(){
+  const b=backupInfo(), nDays=Object.keys(S.docs).filter(k=>/(^|:)day-/.test(k)).length;
+  if(UI.date!==todayKey()||nDays<5||Date.now()<b.snooze||(b.days!=null&&b.days<14)) return "";
+  return `<section class="card bkcard"><div class="note">${b.days==null?"Du har ikke tatt backup ennå. Alt ligger bare på denne telefonen.":`Det er ${b.days} dager siden siste backup.`}</div>
+    <div class="row"><button class="btn sm primary" data-act="exportData">Ta backup</button><button class="btn sm ghost" data-act="backupLater">Om en uke</button></div></section>`;
 }
 
 function planCard(k){
   const on=isTraining(k);
   return `<section class="card plan"><div class="prow"><label class="tgl"><input type="checkbox" id="trainChk" ${on?"checked":""}><span>Treningsdag</span></label>
-    ${on?`<div class="row"><label for="trainExtra" class="note">Ekstra</label><input class="inp num" id="trainExtra" inputmode="numeric" value="${r0(trainExtra(k))}" style="width:84px;padding:8px 10px"><span class="note">kcal</span></div>`:""}</div>
-    ${on?`<div class="note">Gjelder bare denne dagen${multi()?" for "+esc(personOf(CUR).name):""}. Standard er ${r0(plan().pre.extraKcal)} kcal, og den endrer du under «Plan».</div>`:""}</section>`;
+    ${on?`<div class="row"><label for="trainExtra" class="note">+</label><input class="inp num" id="trainExtra" inputmode="numeric" value="${r0(trainExtra(k))}" style="width:84px;padding:8px 10px"><span class="note">kcal</span></div>`:""}</div></section>`;
 }
 
-/* ---------- meal time calculator (own tab, nothing shown on the day page) ---------- */
 function viewTider(){
   const pl=plan(), today=todayKey(), d=dayDoc(today);
   if(UI.calcWake==null) UI.calcWake = d.wake&&d.wake.at ? hhmm(d.wake.at) : hhmm(Math.round(Date.now()/300000)*300000);
@@ -694,7 +729,7 @@ function viewPlan(){
     <div class="field"><label for="plExtra">Ekstra kcal (standard)</label><input class="inp num" id="plExtra" data-pl inputmode="numeric" value="${r0(pl.pre.extraKcal)}"></div>
     <div class="field"><label for="plTrain">Vanlig treningstid</label><input class="inp num" type="time" id="plTrain" data-pl value="${esc(pl.pre.defaultTime)}"></div>
     <div class="field"><label for="plPreTpl">Fast pre-workout</label><select class="inp" id="plPreTpl" data-pl>${tplOpts(pl.pre.tpl)}</select></div></div>
-    <div class="note">De ekstra kaloriene fordeles på karbohydrater (70 %) og protein (30 %).</div></section>`;
+    <div class="note">De ekstra kaloriene legges på karbohydratene. Proteinmålet er det samme hver dag.</div></section>`;
   return h;
 }
 
@@ -723,6 +758,21 @@ function logForOthers(s, makeEntry){
     const e=makeEntry(val); if(!e) continue; addToDay(pid, UI.date, e); names.push(personOf(pid).name); }
   return names;
 }
+
+function sheetCopyMeal(s){
+  const others=people().list.filter(x=>x.id!==CUR), es=(dayDoc(UI.date).entries||[]).filter(e=>e.meal===s.mk), kc=es.reduce((a,e)=>a+e.kcal,0);
+  return `<div class="note">${es.length} ting, ${r0(kc)} kcal. Mengdene kan endres etterpå hos hver person.</div>
+   ${others.length>1?`<div class="whos">${others.map(p=>`<div class="who"><label class="tgl"><input type="checkbox" data-cm="${p.id}" ${s.to[p.id]?"checked":""}><span class="dot" style="background:${pcolor(p)}"></span><span>${esc(p.name)}</span></label></div>`).join("")}</div>`:""}
+   <div class="field"><span class="flabel">Andel av dine mengder</span><div class="row">${[100,75,50,25].map(x=>`<button class="chip ${s.pct===x?"on":""}" data-act="cmPct" data-v="${x}">${x} %</button>`).join("")}</div></div>
+   <div class="note num">Det blir ${r0(kc*(s.pct||100)/100)} kcal${others.length>1?" per person":` for ${esc(others[0]?others[0].name:"")}`}.</div>
+   <button class="btn primary block" data-act="copyMealDo">Kopier</button>`;
+}
+function sheetWeight(s){
+  return `<div class="grid2"><div class="field"><label for="weKg">Vekt (kg)</label><input class="inp num" id="weKg" inputmode="decimal" value="${fmt1(s.kg)}"></div>
+   <div class="field"><label for="weDate">Dato</label><input class="inp num" type="date" id="weDate" value="${s.date}" max="${todayKey()}"></div></div>
+   <button class="btn primary block" data-act="saveWeightEdit">Lagre</button><button class="btn danger block" data-act="deleteWeight">Slett måling</button>`;
+}
+function amtUnits(f){ return (f.portions&&f.portions.length?f.portions:(f.portion?[f.portion]:[])).filter(x=>x&&x.g>0).slice(0,3); }
 
 function sheetQuick(s){
   const v=k=>s[k]==null||s[k]===""?"":String(s[k]).replace(".",",");
@@ -759,7 +809,7 @@ function sheetSlot(s){
   } else {
     h+=`<button class="btn primary block" data-act="slotOther">Legg til mat</button>
       <button class="btn ghost block" data-act="slotWaterOnly">Logg ett glass vann</button>
-      <div class="note">Tips: Velg et fast måltid for ${esc(meal(s.slot).toLowerCase())} under «Plan», så kan du logge det med ett trykk.</div>`;
+      <div class="note">Tips: Velg et fast måltid for ${esc(meal(s.slot).toLowerCase())} under Innstillinger (tannhjulet), så kan du logge det med ett trykk.</div>`;
   }
   return h;
 }
@@ -820,6 +870,50 @@ function viewHist(){
   return h;
 }
 
+function weightTrend(ws){
+  const t=todayKey(), from=addDays(t,-42), pts=ws.filter(([k])=>k>=from).map(([k,v])=>[(parseKey(k)-parseKey(from))/864e5,v]);
+  if(pts.length<2||pts[pts.length-1][0]-pts[0][0]<7) return null;
+  const n=pts.length, mx=pts.reduce((a,p)=>a+p[0],0)/n, my=pts.reduce((a,p)=>a+p[1],0)/n;
+  const num=pts.reduce((a,p)=>a+(p[0]-mx)*(p[1]-my),0), den=pts.reduce((a,p)=>a+(p[0]-mx)**2,0);
+  return den? num/den*7 : null;
+}
+function weightSection(){
+  const ws=Object.entries(weightsDoc().items||{}).sort((a,b)=>a[0]<b[0]?-1:1);
+  const prof=(S.docs[pk("profile")]||{}), target=prof.targetWeight||null, t=todayKey();
+  const last=ws.length?ws[ws.length-1]:null, rate=weightTrend(ws);
+  const rs = rate!=null ? `${rate>0?"+":""}${fmt1(rate)} kg i uka` : "";
+  let est="";
+  if(target&&last){ const diff=last[1]-target;
+    if(Math.abs(diff)<0.3) est=`Du er ved målvekten.`;
+    else if(rate&&Math.sign(rate)===-Math.sign(diff)&&Math.abs(rate)>=0.05){ const wk=Math.abs(diff/rate), d=new Date(); d.setDate(d.getDate()+Math.round(wk*7));
+      est=`Med dagens tempo (${rs}) når du ${fmt1(target)} kg rundt ${d.getDate()}. ${MON[d.getMonth()]}${d.getFullYear()!==new Date().getFullYear()?" "+d.getFullYear():""}, om ca. ${r0(wk)} uker.`; }
+    else est = rate!=null ? `Med dagens tempo (${rs}) nærmer du deg ikke målvekten.` : `Logg vekten et par uker til, så regner appen ut når du når målvekten.`; }
+  const from=addDays(t,-90), wv=ws.filter(([k])=>k>=from); let chart="";
+  if(wv.length>=2){
+    const W=340,H=150,pl=34,pr=8,pt=12,pb=20, vals=wv.map(x=>x[1]).concat(target?[target]:[]), mn=Math.min(...vals)-0.5, mx=Math.max(...vals)+0.5;
+    const d0=parseKey(wv[0][0]), span=Math.max(1,(parseKey(wv[wv.length-1][0])-d0)/864e5);
+    const X=k=>pl+(W-pl-pr)*((parseKey(k)-d0)/864e5)/span, Y=v=>pt+(H-pt-pb)*(1-(v-mn)/(mx-mn));
+    const path=wv.map(([k,v],i)=>(i?"L":"M")+X(k).toFixed(1)+" "+Y(v).toFixed(1)).join(" ");
+    const lk=wv[wv.length-1][0];
+    const ticks=[mx-0.5,(mx+mn)/2,mn+0.5].map(v=>`<line x1="${pl}" x2="${W-pr}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" stroke="var(--line)"/><text x="${pl-4}" y="${(Y(v)+3).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--muted)">${fmt1(v)}</text>`).join("");
+    const lab=k=>{ const d=parseKey(k); return `${d.getDate()}. ${MON[d.getMonth()]}`; };
+    chart=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" role="img" aria-label="Vekt siste 90 dager">${ticks}
+      ${target?`<line x1="${pl}" x2="${W-pr}" y1="${Y(target).toFixed(1)}" y2="${Y(target).toFixed(1)}" stroke="var(--ok)" stroke-dasharray="4 3"/><text x="${W-pr}" y="${(Y(target)-4).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--ok)">mål ${fmt1(target)}</text>`:""}
+      <path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2"/>
+      ${wv.map(([k,v])=>`<circle cx="${X(k).toFixed(1)}" cy="${Y(v).toFixed(1)}" r="${k===lk?4:2.5}" fill="var(--accent)"/>`).join("")}
+      <text x="${pl}" y="${H-5}" font-size="9" fill="var(--muted)">${lab(wv[0][0])}</text><text x="${W-pr}" y="${H-5}" text-anchor="end" font-size="9" fill="var(--muted)">${lab(lk)}</text></svg>`; }
+  const rows=ws.slice().reverse(), shown=UI.allW?rows:rows.slice(0,5);
+  return `<section class="card" style="display:flex;flex-direction:column;gap:10px">
+    <div class="row" style="flex-wrap:nowrap"><input class="inp num" id="wIn" inputmode="decimal" placeholder="kg" style="flex:1;min-width:0"><input class="inp num" type="date" id="wDate" value="${t}" max="${t}" aria-label="Dato" style="flex:1.4;min-width:0"><button class="btn primary" data-act="logWeight">Logg</button></div>
+    <div class="row"><label for="wTarget" class="note">Målvekt</label><input class="inp num" id="wTarget" inputmode="decimal" value="${target?fmt1(target):""}" placeholder="kg" style="width:96px;padding:8px 10px"><span class="note">kg</span></div>
+    ${last?`<div class="note num">Siste: <b>${fmt1(last[1])} kg</b> (${dateLabel(last[0]).toLowerCase()})${rs?` · trend ${rs}`:""}</div>`:`<div class="note">Logg vekten en gang i uka, gjerne om morgenen.</div>`}
+    ${est?`<div class="note">${est}</div>`:""}
+    ${chart}
+    ${rows.length?`<div class="wlist">${shown.map(([k,v])=>{ const ix=rows.findIndex(r=>r[0]===k), prev=rows[ix+1], dv=prev?v-prev[1]:null;
+      return `<button data-act="editWeight" data-v="${k}"><span>${dateLabel(k)}</span><span class="num"><b>${fmt1(v)} kg</b>${dv!=null?` <small>${dv>0?"+":""}${fmt1(dv)}</small>`:""}</span></button>`; }).join("")}</div>
+      ${rows.length>5?`<button class="link sm" data-act="allW">${UI.allW?"Vis færre":`Vis alle (${rows.length})`}</button>`:""}`:""}
+  </section>`;
+}
 function viewGoals(){
   const g=goals(), prof=(S.docs[pk("profile")]||{}).body||{};
   const ws=Object.entries(weightsDoc().items||{}).sort((a,b)=>a[0]<b[0]?-1:1);
@@ -855,19 +949,8 @@ function viewGoals(){
     <button class="btn block" data-act="calc">Regn ut og fyll inn</button>
     <div class="note">Bruker Mifflin–St Jeor-formelen. Protein settes til ca. 1,8–2,2 g per kg, fett til 25–30 % av kaloriene og resten karbohydrater.</div></section>
 
-    <div class="sect">Vekt</div><section class="card">
-    <div class="row"><input class="inp num" id="wIn" inputmode="decimal" placeholder="kg" style="flex:1;min-width:0" value=""><button class="btn primary" data-act="logWeight">Logg i dag</button></div>
-    ${ws.length?`<div class="note num" style="margin-top:8px">Siste: ${fmt1(ws[ws.length-1][1])} kg (${dateLabel(ws[ws.length-1][0])})${ws.length>1?` · endring ${(ws[ws.length-1][1]-ws[0][1]>0?"+":"")+fmt1(ws[ws.length-1][1]-ws[0][1])} kg siden ${dateLabel(ws[0][0])}`:""}</div>`:`<div class="note" style="margin-top:8px">Logg vekten en gang i uka, gjerne om morgenen.</div>`}
-    ${wchart}</section>
-    <div class="sect">Garmin i dag</div><section class="card" style="display:flex;flex-direction:column;gap:10px">
-    <div class="grid2"><div class="field"><label for="gmSleep">Søvnscore</label><input class="inp num" id="gmSleep" inputmode="numeric" value="${esc(gm.sleep??"")}" placeholder="0–100"></div>
-    <div class="field"><label for="gmBb">Body battery (morgen)</label><input class="inp num" id="gmBb" inputmode="numeric" value="${esc(gm.bb??"")}" placeholder="0–100"></div>
-    <div class="field"><label for="gmRhr">Hvilepuls</label><input class="inp num" id="gmRhr" inputmode="numeric" value="${esc(gm.rhr??"")}" placeholder="slag/min"></div>
-    <div class="field"><label for="gmHrv">HRV (natt)</label><input class="inp num" id="gmHrv" inputmode="numeric" value="${esc(gm.hrv??"")}" placeholder="ms"></div>
-    <div class="field"><label for="gmSleepH">Søvn (timer)</label><input class="inp num" id="gmSleepH" inputmode="decimal" value="${esc(gm.sleepH!=null?fmt1(gm.sleepH):"")}" placeholder="7,5"></div>
-    <div class="field"><label for="gmStress">Stress (snitt)</label><input class="inp num" id="gmStress" inputmode="numeric" value="${esc(gm.stress??"")}" placeholder="0–100"></div></div>
-    <div class="field"><label for="gmNote">Notat</label><input class="inp" id="gmNote" value="${esc(gm.note||"")}" placeholder="Energi, sårhet, sult …"></div>
-    <button class="btn primary block" data-act="logGarmin">Lagre for i dag</button></section>`;
+    <div class="sect">Vekt</div>${weightSection()}
+`;
 }
 
 function viewSettings(){
@@ -877,6 +960,7 @@ function viewSettings(){
     <div class="list plist">${pl.map(p=>`<button data-act="editPerson" data-v="${p.id}"><span class="nm"><span class="dot" style="background:${pcolor(p)}"></span>${esc(p.name)}${p.id===CUR?'<span class="tag">valgt</span>':""}</span><small>Endre</small></button>`).join("")}</div>
     <button class="btn ghost block" data-act="newPerson">+ Legg til person</button>
     <div class="note">Hver person har egne mål, egen logg, plan og vekt. Matvarer og faste måltider er felles. Når du logger mat, kan du også logge den for de andre.</div></section>
+${viewPlan()}
     <div class="sect" id="kassal">Norske butikkvarer (Kassalapp)</div><section class="card" style="display:flex;flex-direction:column;gap:10px">
     ${kasStatusLine()}
     ${kassalKey()&&UI.kasStatus!=="bad"?"":`<div class="note">Med en gratis nøkkel fra Kassalapp finner appen næringsinnholdet til varene i norske butikker, både når du skanner og når du søker.</div>
@@ -892,6 +976,7 @@ function viewSettings(){
     ${sheetUrl()?`<div class="row"><button class="btn ghost" style="flex:1" data-act="syncNow">Send nå</button><button class="btn ghost" style="flex:1" data-act="syncAll">Send alt på nytt</button></div>`:""}</section>
     <div class="sect">Backup</div><section class="card" style="display:flex;flex-direction:column;gap:10px">
     <div class="note">Alt lagres bare på telefonen. Ta en backup av og til, for eksempel til e-post eller Google Disk, så mister du ingenting om du bytter telefon.</div>
+    ${(()=>{ const d=backupInfo().days; return `<div class="okline" style="color:${d==null||d>=14?"var(--over)":"var(--ok)"}">${d==null?"Ingen backup tatt ennå":d===0?"Siste backup: i dag":`Siste backup: ${d} ${d===1?"dag":"dager"} siden`}</div>`; })()}
     <button class="btn primary block" data-act="exportData">Del backup</button>
     <div class="field"><label for="backupTxt">Gjenopprett: lim inn backup-teksten her</label><textarea class="inp" id="backupTxt" rows="3"></textarea></div>
     <button class="btn ghost block" data-act="importData">Gjenopprett fra backup</button></section>
@@ -918,6 +1003,8 @@ function renderSheet(){
   else if(s.type==="quick"){ title=s.entryId?"Endre hurtiglogg":"Hurtiglogg"; body=sheetQuick(s); }
   else if(s.type==="slot"){ title=meal(s.slot)+(s.at?" kl "+hhmm(s.at):""); body=sheetSlot(s); }
   else if(s.type==="tpl"){ title=UI.tplDraft.id&&tplById(UI.tplDraft.id)?"Endre fast måltid":"Nytt fast måltid"; body=sheetTpl(); }
+  else if(s.type==="copyMeal"){ title=meal(s.mk)+": kopier"; body=sheetCopyMeal(s); }
+  else if(s.type==="weight"){ title="Endre vekt"; body=sheetWeight(s); }
   else if(s.type==="amount"){ title=s.entryId?"Endre":"Mengde"; body=sheetAmount(s); }
   else if(s.type==="product"){ title=s.id?"Endre matvare":"Ny matvare"; body=sheetProduct(s); }
   else if(s.type==="scan"){ title="Strekkode"; body=sheetScan(s); }
@@ -1040,7 +1127,9 @@ function mostUsed(skip){
   return Object.entries(cnt).filter(([k,c])=>c.n>=2&&!skip.has(k)).sort((a,b)=>b[1].n-a[1].n).slice(0,10).map(([k,c],i)=>Object.assign({id:"u"+i,n:c.n},c.f));
 }
 
-function foodRow(f,act){ return `<button data-act="${act}" data-v="${esc(f.id)}"><span class="nm">${esc(f.name)}<br><small class="num">${r0(f.per.kcal)} kcal · P ${fmt1(f.per.p)} · K ${fmt1(f.per.c)} · F ${fmt1(f.per.f)} per 100 g</small></span></button>`; }
+function foodRow(f,act){ if(f.portion&&f.portion.g>0&&f.per){ const v=calc(f.per,f.portion.g);
+    return `<button data-act="${act}" data-v="${esc(f.id)}"><span class="nm">${esc(f.name)}<br><small class="num">${esc(f.portion.label)} (${r0(f.portion.g)} g): ${r0(v.kcal)} kcal · P ${r0(v.p)} · K ${r0(v.c)} · F ${r0(v.f)}</small></span></button>`; }
+  return `<button data-act="${act}" data-v="${esc(f.id)}"><span class="nm">${esc(f.name)}<br><small class="num">${r0(f.per.kcal)} kcal · P ${fmt1(f.per.p)} · K ${fmt1(f.per.c)} · F ${fmt1(f.per.f)} per 100 g</small></span></button>`; }
 
 function sheetPick(s){
   const q=(s.q||"").trim().toLowerCase();
@@ -1076,13 +1165,14 @@ function sheetPick(s){
 }
 
 function sheetAmount(s){
-  const f=s.food;
-  const portions=[];
-  (f.portions&&f.portions.length?f.portions:(f.portion?[f.portion]:[])).slice(0,3).forEach(x=>portions.push(x));
-  portions.push({label:"100 g",g:100});
-  if(s.lastG && !portions.some(p=>p.g===s.lastG)) portions.unshift({label:"Sist: "+r0(s.lastG)+" g",g:s.lastG});
+  const f=s.food, units=amtUnits(f), ui=Math.min(s.unitIdx||0,Math.max(0,units.length-1)), u=units[ui];
+  const portions=[{label:"100 g",g:100}];
+  if(s.lastG && !units.some(p=>p.g===s.lastG) && s.lastG!==100) portions.unshift({label:"Sist: "+r0(s.lastG)+" g",g:s.lastG});
+  const cnt = u ? numIn(s.g)/u.g : 0;
   return `<div><div style="font-weight:600;font-size:17px">${esc(f.name)}</div><div class="note num">${r0(f.per.kcal)} kcal · P ${fmt1(f.per.p)} · K ${fmt1(f.per.c)} · F ${fmt1(f.per.f)} per 100 g</div></div>
-   <div class="row">${portions.map(p=>`<button class="chip" data-act="portion" data-v="${p.g}">${esc(p.label)}${p.label.includes(" g")?"":` · ${r0(p.g)} g`}</button>`).join("")}</div>
+   ${u?`<div class="prow"><div class="stepper"><button data-act="cnt" data-v="-1" aria-label="Færre">−</button><span class="cv num" id="cntV">${fmt1(Math.round(cnt*10)/10)}</span><button data-act="cnt" data-v="1" aria-label="Flere">+</button></div>
+     <div class="row" style="justify-content:flex-end">${units.map((x,i)=>`<button class="chip ${i===ui?"on":""}" data-act="unit" data-v="${i}">${esc(x.label.replace(/^1 /,""))} · ${r0(x.g)} g</button>`).join("")}</div></div>`:""}
+   <div class="row">${portions.map(p=>`<button class="chip" data-act="portion" data-v="${p.g}">${esc(p.label)}</button>`).join("")}</div>
    <div class="grid2"><div class="field"><label for="amtG">Mengde (gram)</label><input class="inp num" id="amtG" inputmode="decimal" value="${s.g??""}"></div>
    ${s.meal==="tpl"?"":`<div class="field"><label for="amtMeal">Måltid</label><select class="inp" id="amtMeal">${MEALS.map(([k,l])=>`<option value="${k}" ${s.meal===k?"selected":""}>${l}</option>`).join("")}</select></div>`}</div>
    <div class="preview num" id="amtPrev"></div>
@@ -1094,6 +1184,7 @@ function sheetAmount(s){
 function updateAmountPreview(){
   const el=$("#amtPrev"); if(!el||!UI.sheet||UI.sheet.type!=="amount") return;
   const g=numIn($("#amtG").value), v=calc(UI.sheet.food.per,g);
+  const cv=$("#cntV"), u=amtUnits(UI.sheet.food)[UI.sheet.unitIdx||0]; if(cv&&u) cv.textContent=fmt1(Math.round(g/u.g*10)/10);
   el.innerHTML=`<div><b>${r0(v.kcal)}</b><span>kcal</span></div><div><b style="color:var(--prot)">${fmt1(v.p)}</b><span>protein</span></div><div><b style="color:var(--carb)">${fmt1(v.c)}</b><span>karbo</span></div><div><b style="color:var(--fat)">${fmt1(v.f)}</b><span>fett</span></div>`;
 }
 
@@ -1335,7 +1426,7 @@ function readProductForm(){
   return {name:$("#pn").value.trim(),kcal:$("#pk").value,p:$("#pp").value,c:$("#pc").value,f:$("#pf").value,porLabel:$("#pporl").value.trim(),porG:$("#pporg").value,barcode:$("#pbc").value.replace(/\D/g,"")};
 }
 
-const UNDO_ACTS=new Set(["saveAmount","saveQuick","copyY","deleteEntry","logTpl","logSlotTpl","slotLog","slotWaterOnly","addEstimate"]);
+const UNDO_ACTS=new Set(["copyMealDo","saveAmount","saveQuick","copyY","deleteEntry","logTpl","logSlotTpl","slotLog","slotWaterOnly","addEstimate"]);
 document.addEventListener("click", async ev=>{
   const t=ev.target.closest("[data-act]"); if(!t) return;
   const a=t.dataset.act, v=t.dataset.v;
@@ -1439,8 +1530,8 @@ document.addEventListener("click", async ev=>{
     [["sleep","gmSleep"],["bb","gmBb"],["rhr","gmRhr"],["hrv","gmHrv"],["sleepH","gmSleepH"],["stress","gmStress"]].forEach(([k,id])=>{ const v=n(id); if(v!=null) rec[k]=v; });
     const note=$("#gmNote").value.trim(); if(note) rec.note=note;
     const md=clone(morningDoc()); md.kind="morning"; md.items=md.items||{};
-    if(Object.keys(rec).length) md.items[todayKey()]=rec; else delete md.items[todayKey()];
-    writeDoc(pk("morning"),md); toast("Garmin-tallene er lagret"); }
+    if(Object.keys(rec).length) md.items[UI.date]=rec; else delete md.items[UI.date];
+    UI.gmOpen=false; writeDoc(pk("morning"),md); toast("Garmin-tallene er lagret"); }
   else if(a==="saveKey"){ const key=$("#kKey").value.replace(/\s+/g,"").replace(/^Bearer/i,"");
     const st=clone(S.docs.settings||{kind:"settings"}); st.kind="settings"; st.kassalKey=key; writeDoc("settings",st);
     if(!key){ UI.kasStatus=null; toast("Nøkkelen er fjernet"); return; }
@@ -1484,6 +1575,7 @@ document.addEventListener("click", async ev=>{
   else if(a==="installUpdate"){ if(window.Android&&Android.installUpdate){ UPD.status="progress"; UPD.pct=0; render(); Android.installUpdate(); } }
   else if(a==="checkUpdates"){ if(window.Android&&Android.checkUpdates){ Android.checkUpdates(); toast("Ser etter oppdateringer …"); } }
   else if(a==="exportData"){ const txt=JSON.stringify({app:"makrologg",v:1,exported:new Date().toISOString(),docs:S.docs});
+    const st0=clone(S.docs.settings||{kind:"settings"}); st0.kind="settings"; st0.lastBackup=Date.now(); writeDoc("settings",st0);
     if(window.Android&&Android.share) Android.share(txt,"Makrologg-backup "+todayKey());
     else { const ta=$("#backupTxt"); ta.value=txt; ta.select(); try{ navigator.clipboard.writeText(txt); toast("Kopiert"); }catch(e){} } }
   else if(a==="importData"){ try{ const j=JSON.parse($("#backupTxt").value); if(j.app!=="makrologg"||!j.docs) throw 0;
@@ -1531,7 +1623,25 @@ Svar KUN med JSON: {"items":[{"name":"kort norsk navn","grams":tall,"kcal":tall,
     pr.goals={kcal,p,c,f,water:goals().water}; writeDoc(pk("profile"),pr);
     toast(`Vedlikehold ca. ${Math.round(bmr*act/10)*10} kcal. Mål lagret.`); }
   else if(a==="logWeight"){ const w=numIn($("#wIn").value); if(w<20||w>400){ toast("Skriv inn vekten i kg"); return; }
-    const wd=clone(weightsDoc()); wd.kind="weights"; wd.items=wd.items||{}; wd.items[todayKey()]=w; writeDoc(pk("weights"),wd); toast("Vekt logget"); }
+    const k=($("#wDate")&&$("#wDate").value)||todayKey();
+    const wd=clone(weightsDoc()); wd.kind="weights"; wd.items=wd.items||{}; wd.items[k]=w; writeDoc(pk("weights"),wd); toast(`Vekt logget for ${dateLabel(k).toLowerCase()}`); }
+  else if(a==="allW"){ UI.allW=!UI.allW; render(); }
+  else if(a==="editWeight"){ openSheet({type:"weight",date:v,kg:(weightsDoc().items||{})[v]}); }
+  else if(a==="saveWeightEdit"){ const s=UI.sheet, w=numIn($("#weKg").value), k=$("#weDate").value||s.date; if(w<20||w>400){ toast("Skriv inn vekten i kg"); return; }
+    const wd=clone(weightsDoc()); wd.kind="weights"; wd.items=wd.items||{}; delete wd.items[s.date]; wd.items[k]=w; closeSheet(); writeDoc(pk("weights"),wd); toast("Vekt endret"); }
+  else if(a==="deleteWeight"){ const s=UI.sheet, wd=clone(weightsDoc()); wd.kind="weights"; wd.items=wd.items||{}; delete wd.items[s.date]; closeSheet(); writeDoc(pk("weights"),wd); toast("Måling slettet"); }
+  else if(a==="gmToggle"){ UI.gmOpen=!UI.gmOpen; render(); }
+  else if(a==="backupLater"){ const st=clone(S.docs.settings||{kind:"settings"}); st.kind="settings"; st.backupSnooze=Date.now()+7*864e5; writeDoc("settings",st); }
+  else if(a==="copyMeal"){ const others=people().list.filter(x=>x.id!==CUR); const to={}; if(others[0]) to[others[0].id]=true; openSheet({type:"copyMeal",mk:v,pct:100,to}); }
+  else if(a==="cmPct"){ UI.sheet.pct=Number(v); renderSheet(); }
+  else if(a==="copyMealDo"){ const s=UI.sheet, f=(Number(s.pct)||100)/100, es=(dayDoc(UI.date).entries||[]).filter(e=>e.meal===s.mk), ids=Object.keys(s.to).filter(k=>s.to[k]);
+    if(!ids.length){ toast("Velg minst én person"); return; }
+    for(const pid of ids) for(const e of es) addToDay(pid, UI.date, Object.assign(clone(e),{id:uid(),g:(e.g||0)*f,kcal:e.kcal*f,p:e.p*f,c:e.c*f,f:e.f*f}));
+    closeSheet(); toast(`${meal(s.mk)} kopiert til ${ids.map(x=>personOf(x).name).join(", ")}${f!==1?` (${r0(f*100)} %)`:""}`); }
+  else if(a==="cnt"){ const s=UI.sheet, u=amtUnits(s.food)[s.unitIdx||0]; if(!u) return; let c=numIn($("#amtG").value)/u.g;
+    c = Number(v)>0 ? (c<1 ? Math.floor(c*2+1e-9)/2+0.5 : Math.floor(c+1e-9)+1) : (c<=1 ? Math.max(0.5,Math.ceil(c*2-1e-9)/2-0.5) : Math.ceil(c-1e-9)-1);
+    const g=r1(c*u.g); s.g=g; $("#amtG").value=g; updateAmountPreview(); }
+  else if(a==="unit"){ const s=UI.sheet, units=amtUnits(s.food), old=units[s.unitIdx||0], c=old?numIn($("#amtG").value)/old.g:1; s.unitIdx=Number(v); s.g=r1(Math.max(0.5,Math.round(c*2)/2)*units[s.unitIdx].g); renderSheet(); }
 });
 
 document.addEventListener("input", ev=>{
@@ -1550,6 +1660,8 @@ document.addEventListener("change", ev=>{
   if(ev.target.id==="amtMeal" && UI.sheet) UI.sheet.meal=ev.target.value;
   if(ev.target.id==="datePick" && ev.target.value){ UI.date=ev.target.value; ev.target.style.pointerEvents="none"; render(); }
   if(ev.target.matches("[data-pl]")) savePlanForm();
+  if(ev.target.id==="wTarget"){ const pr=clone(S.docs[pk("profile")]||{kind:"profile"}); pr.kind="profile"; const v=numIn(ev.target.value); pr.targetWeight = v>=20&&v<=400 ? v : null; writeDoc(pk("profile"),pr); toast(pr.targetWeight?`Målvekt: ${fmt1(v)} kg`:"Målvekt fjernet"); }
+  if(ev.target.dataset && ev.target.dataset.cm && UI.sheet && UI.sheet.to){ UI.sheet.to[ev.target.dataset.cm]=ev.target.checked; }
   if(ev.target.dataset && ev.target.dataset.who && UI.sheet){ const pid=ev.target.dataset.who, s=UI.sheet; s.who=s.who||{};
     if(s.type==="quick"){ s.name=$("#qkName").value; s.kcal=$("#qkK").value; s.p=$("#qkP").value; s.c=$("#qkC").value; s.f=$("#qkF").value; const qm=$("#qkMeal"); if(qm) s.meal=qm.value; }
     if(ev.target.checked){ const g=$("#amtG"); s.who[pid]= s.type==="amount" ? (g?g.value:"") : 1; } else delete s.who[pid];
@@ -1578,6 +1690,12 @@ function savePlanForm(){
   pr.plan=pl; writeDoc(pk("profile"),pr);
   if(pl.reminders&&!wasOn&&notifState()!=="granted"&&window.Android&&Android.requestNotifPermission) Android.requestNotifPermission();
 }
+document.addEventListener("focusin", ev=>{ const t=ev.target;
+  if(t && t.matches && t.matches('input[inputmode="decimal"],input[inputmode="numeric"]')) setTimeout(()=>{ try{ t.select(); }catch(e){} },0); });
+document.addEventListener("keydown", ev=>{
+  if(ev.key!=="Enter") return; const t=ev.target; if(!t||t.tagName!=="INPUT"||t.id==="q"||t.id==="bcIn"||t.type==="checkbox") return;
+  const scope=t.closest(".sheet")||t.closest(".card"); const btn=scope&&scope.querySelector('.btn.primary:not([disabled]):not(.plus),[data-act="waterSave"]');
+  ev.preventDefault(); if(btn) btn.click(); else t.blur(); });
 document.addEventListener("keydown", ev=>{ if(ev.key==="Escape" && UI.sheet) closeSheet(); if(ev.key==="Enter" && ev.target.id==="bcIn") handleCode(ev.target.value); });
 
 $("#fileBarcode").addEventListener("change", async ev=>{
