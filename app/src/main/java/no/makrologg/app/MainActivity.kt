@@ -28,7 +28,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         /** Raise when the bridge below gains features the web page depends on. */
-        const val NATIVE_API = 6
+        const val NATIVE_API = 7
         const val REPO = "breenskillz-ctrl/Makrologg"
         const val WEB_URL = "https://raw.githubusercontent.com/$REPO/main/app/src/main/assets/index.html"
         const val RELEASE_URL = "https://api.github.com/repos/$REPO/releases/latest"
@@ -57,6 +57,12 @@ class MainActivity : AppCompatActivity() {
     private var pendingCall: String? = null
 
     private fun handleReminderIntent(i: Intent?) {
+        i?.getStringExtra("shortcut")?.let { sc ->
+            i.removeExtra("shortcut")
+            val call = "window.onShortcut && window.onShortcut(${JSONObject.quote(sc)})"
+            if (pageReady) js(call) else pendingCall = call
+            return
+        }
         val slot = i?.getStringExtra("slot") ?: return
         val day = i.getStringExtra("day") ?: ""
         i.removeExtra("slot")

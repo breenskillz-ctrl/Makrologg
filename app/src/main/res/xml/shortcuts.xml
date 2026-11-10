@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut android:shortcutId="scan" android:enabled="true" android:icon="@drawable/sc_scan"
+        android:shortcutShortLabel="@string/sc_scan_s" android:shortcutLongLabel="@string/sc_scan">
+        <intent android:action="android.intent.action.VIEW"
+            android:targetPackage="no.makrologg.app" android:targetClass="no.makrologg.app.MainActivity">
+            <extra android:name="shortcut" android:value="scan" />
+        </intent>
+    </shortcut>
+    <shortcut android:shortcutId="weight" android:enabled="true" android:icon="@drawable/sc_weight"
+        android:shortcutShortLabel="@string/sc_weight_s" android:shortcutLongLabel="@string/sc_weight">
+        <intent android:action="android.intent.action.VIEW"
+            android:targetPackage="no.makrologg.app" android:targetClass="no.makrologg.app.MainActivity">
+            <extra android:name="shortcut" android:value="weight" />
+        </intent>
+    </shortcut>
+    <shortcut android:shortcutId="quick" android:enabled="true" android:icon="@drawable/sc_quick"
+        android:shortcutShortLabel="@string/sc_quick_s" android:shortcutLongLabel="@string/sc_quick">
+        <intent android:action="android.intent.action.VIEW"
+            android:targetPackage="no.makrologg.app" android:targetClass="no.makrologg.app.MainActivity">
+            <extra android:name="shortcut" android:value="quick" />
+        </intent>
+    </shortcut>
+</shortcuts>

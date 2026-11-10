@@ -1,4 +1,4 @@
-<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="23"><title>Makrologg</title>
+<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="24"><title>Makrologg</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
 <style>
@@ -8,7 +8,7 @@
   --fg:#0a0a0a; --muted:#6b6b6b;
   --accent:#0a0a0a; --accent-fg:#ffffff; --accent-soft:#e6e6e6;
   --prot:#3a3a3a; --fat:#a8a8a8; --carb:#757575; --kcal:#0a0a0a;
-  --over:#d23a2e; --ok:#4a4a4a; --bar:#b5b5b5;
+  --over:#d23a2e; --ok:#4a4a4a; --bar:#b5b5b5; --warn:#b7791f;
   --shadow:0 1px 2px rgba(20,33,30,.06),0 6px 20px rgba(20,33,30,.07);
   --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
   --body:"Figtree",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
@@ -19,13 +19,13 @@
   --fg:#f2f2f2; --muted:#8a8a8a;
   --accent:#ffffff; --accent-fg:#000000; --accent-soft:#2a2a2a;
   --prot:#d0d0d0; --fat:#6a6a6a; --carb:#9a9a9a; --kcal:#ffffff;
-  --over:#ff5a4f; --ok:#bdbdbd; --bar:#4a4a4a; --shadow:none; color-scheme:dark}}
+  --over:#ff5a4f; --ok:#bdbdbd; --bar:#4a4a4a; --warn:#f2b545; --shadow:none; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#000000; --surface:#121212; --surface-2:#1e1e1e; --line:#2c2c2c;
   --fg:#f2f2f2; --muted:#8a8a8a;
   --accent:#ffffff; --accent-fg:#000000; --accent-soft:#2a2a2a;
   --prot:#d0d0d0; --fat:#6a6a6a; --carb:#9a9a9a; --kcal:#ffffff;
-  --over:#ff5a4f; --ok:#bdbdbd; --bar:#4a4a4a; --shadow:none; color-scheme:dark}
+  --over:#ff5a4f; --ok:#bdbdbd; --bar:#4a4a4a; --warn:#f2b545; --shadow:none; color-scheme:dark}
 /* colour themes chosen in settings (default = monochrome above) */
 :root[data-pal="lime"]{--accent:#4d6b00;--accent-fg:#ffffff;--accent-soft:#e6f2c4;--kcal:#5c8000;--prot:#2f6fd0;--carb:#8a55d0;--fat:#c98a10;--bar:#a9c46a;--ok:#2f8a4a}
 :root[data-pal="is"]{--accent:#007c99;--accent-fg:#ffffff;--accent-soft:#d3eef5;--kcal:#0092b3;--prot:#4a57d6;--carb:#9a55d6;--fat:#c98a10;--bar:#86c9da;--ok:#1f9a66}
@@ -157,6 +157,39 @@ header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background
 .gnums div{display:flex;flex-direction:column}
 .gnums b{font-family:var(--display);font-size:20px}
 .gnums span{font-size:12px;color:var(--muted)}
+.mrow .mtop .left.wn,.pchip small.wn{color:var(--warn)}
+.rrow{display:flex;align-items:center;border-top:1px solid var(--line)}
+.list .rrow:first-child{border-top:0}
+.rrow>button:first-child{flex:1;min-width:0;border:0!important}
+.rrow .plus{flex-shrink:0;margin-right:10px}
+.setnav button .nm small{display:block;color:var(--muted);font-size:12px;font-weight:400;margin-top:2px}
+.backlink{margin:4px 0 0;padding-left:0;display:block;text-align:left}
+.gtoggle{display:flex;justify-content:space-between;align-items:center;width:100%;border:0;background:var(--surface);color:var(--fg);border-radius:16px;padding:14px 16px;font:inherit;text-align:left}
+.gtoggle small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.gtoggle .chev{width:20px;height:20px;flex-shrink:0}
+.gtoggle.open .chev{transform:rotate(180deg)}
+.mcfg{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line)}
+.mcfg:first-child{border-top:0}
+.mcfg .inp{flex:1;min-width:0;padding:8px 10px}
+.mcfg .mv{width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--surface-2);color:var(--fg);font-size:16px}
+.mcfg .mv:disabled{opacity:.3}
+.mcfg.hid .inp{opacity:.45}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center}
+.cal .wd{font-size:11px;color:var(--muted);padding-bottom:2px}
+.cal button{aspect-ratio:1;border:0;border-radius:10px;background:var(--surface-2);color:var(--fg);font:inherit;font-size:13px;position:relative;padding:0}
+.cal button.ok{background:var(--accent);color:var(--accent-fg)}
+.cal button.wn{background:var(--warn);color:#111}
+.cal button.ov{background:var(--over);color:#fff}
+.cal button.lo{background:transparent;border:1.5px solid var(--accent)}
+.cal button.fut{opacity:.35}
+.cal button.td{outline:2px solid var(--fg);outline-offset:1px}
+.cal button i{position:absolute;right:5px;top:5px;width:5px;height:5px;border-radius:50%;background:currentColor}
+.cal .blank{visibility:hidden}
+.callg{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted);margin-top:8px}
+.callg span{display:inline-flex;align-items:center;gap:5px}
+.callg i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.notecard textarea{width:100%;resize:vertical;min-height:54px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .qk-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .meal h3{margin:0;font-family:var(--display);font-weight:600;font-size:17px}
 .meal .mk{font-size:13px;color:var(--muted)}
@@ -291,6 +324,9 @@ html.lock,html.lock body{overflow:hidden}
 .seg{display:flex;background:var(--surface-2);border-radius:12px;padding:3px;gap:3px}
 .seg button{flex:1;border:0;background:transparent;border-radius:9px;padding:8px 4px;font-size:13px;font-weight:600;color:var(--muted)}
 .seg button.on{background:var(--surface);color:var(--fg);box-shadow:var(--shadow)}
+.card.mday.empty{display:flex;flex-direction:row;color:var(--fg);font-size:inherit;padding-left:14px;padding-right:14px;justify-content:space-between;align-items:center;gap:8px;padding-top:10px;padding-bottom:10px;text-align:left}
+.card.mday.empty .dh{margin:0;display:flex;flex-direction:row;align-items:baseline;gap:8px;text-align:left}
+.card.mday.empty .madd{margin:0;padding:0;border:0;display:flex;gap:12px}
 </style>
 
 </head><body><div class="app" id="app">
@@ -334,7 +370,14 @@ const BASE = [
  ["Müsli",380,10,9,62,["1 dl",45]],["Kesam lett",64,10,1,4,["1 dl",100]]
 ].map((r,i)=>({id:"b"+i,name:r[0],per:{kcal:r[1],p:r[2],f:r[3],c:r[4]},portion:r[5]?{label:r[5][0],g:r[5][1]}:null,base:true}));
 
-const MEALS = [["frokost","Frokost"],["lunsj","Lunsj"],["middag","Middag"],["kvelds","Kveldsmat"],["snacks","Mellommåltid"],["pre","Pre-workout"]];
+const MEALS_BASE = [["frokost","Frokost"],["lunsj","Lunsj"],["snacks","Mellommåltid"],["middag","Middag"],["kvelds","Kveldsmat"],["pre","Pre-workout"]];
+let MEALS = MEALS_BASE.map(x=>x.slice()), MEALS_HIDDEN = new Set();
+function mealCfg(){ const c=(S.docs&&S.docs.settings||{}).mealCfg; return Array.isArray(c)&&c.length?c:null; }
+function applyMeals(){ const c=mealCfg(); MEALS_HIDDEN=new Set();
+  if(!c){ MEALS=MEALS_BASE.map(x=>x.slice()); return; }
+  const out=[]; for(const x of c){ const b=MEALS_BASE.find(m=>m[0]===x.k); if(b){ out.push([x.k,(x.label||"").trim()||b[1]]); if(x.hidden) MEALS_HIDDEN.add(x.k); } }
+  for(const b of MEALS_BASE) if(!out.some(o=>o[0]===b[0])) out.push(b.slice());
+  MEALS=out; }
 const DEFAULT_GOALS = {kcal:2200,p:150,f:70,c:240,water:8};
 
 /* ---------- utils ---------- */
@@ -493,6 +536,12 @@ function reminderListFor(person){
 function pushReminders(){ if(!canRemind()||!S.ready) return; try{ Android.scheduleReminders(JSON.stringify(reminderList())); }catch(e){} }
 function notifState(){ try{ return window.Android&&Android.notifPermission ? Android.notifPermission() : "none"; }catch(e){ return "none"; } }
 window.onNotifPermission = st => { if(st!=="granted") toast("Varsler er slått av for Makrologg"); render(); };
+let PENDING_SC=null;
+function runShortcut(sc){ UI.sset=""; closeSheet();
+  if(sc==="scan"){ UI.tab="dag"; UI.date=todayKey(); render(); openSheet({type:"scan",meal:guessMeal()}); startScan(); }
+  else if(sc==="quick"){ UI.tab="dag"; UI.date=todayKey(); render(); openSheet({type:"quick",meal:guessMeal()}); }
+  else if(sc==="weight"){ UI.tab="mal"; render(); window.scrollTo(0,0); setTimeout(()=>{ const el=$("#wIn"); if(el){ el.scrollIntoView({block:"center"}); el.focus(); } },80); } }
+window.onShortcut = sc => { if(!S.ready){ PENDING_SC=sc; return; } runShortcut(sc); };
 window.onReminderOpen = (slot, day) => { if(String(slot).includes("|")){ const [pid,sl]=slot.split("|"); slot=sl;
     if(people().list.some(x=>x.id===pid) && pid!==CUR) setActive(pid); }
   UI.tab="dag"; if(day) UI.date=day; render(); openSlot(slot, day||UI.date); };
@@ -605,7 +654,8 @@ const ICON = {
 
 function applyPal(){ const v=(S.docs.settings||{}).palette||""; if(document.documentElement.dataset.pal!==v){ if(v) document.documentElement.dataset.pal=v; else delete document.documentElement.dataset.pal; } }
 function render(){
-  applyPal();
+  applyPal(); applyMeals();
+  if(S.ready && PENDING_SC){ const sc=PENDING_SC; PENDING_SC=null; setTimeout(()=>runShortcut(sc),0); }
   // tabs
   $("#tabs").innerHTML = [["dag","Dag",ICON.day],["meny","Meny",ICON.pot],["hist","Historikk",ICON.hist],["mal","Kropp",ICON.goal]]
     .map(([k,l,i])=>`<button data-act="tab" data-v="${k}" class="${UI.tab===k?"on":""}">${i}${l}</button>`).join("");
@@ -615,10 +665,10 @@ function render(){
   const m=$("#main"), pb=personBar();
   if(UI.tab==="innst"){ m.innerHTML = viewSettings(); return; }
   if(UI.tab==="dag") m.innerHTML = pb + updateBanner() + viewDay();
-  else if(UI.tab==="hist") m.innerHTML = pb + viewHist();
+  else if(UI.tab==="hist") m.innerHTML = pb + viewHist() + calendarCard();
   else if(UI.tab==="meny") m.innerHTML = viewMenu();
   else if(UI.tab==="plan"){ UI.tab="innst"; m.innerHTML = viewSettings(); }
-  else if(UI.tab==="tider") m.innerHTML = `<button class="link sm" data-act="tab" data-v="innst" style="margin:4px 0 0;padding-left:0;display:block;text-align:left">‹ Innstillinger</button><h2 class="ptitle">Måltidstider</h2>` + viewTider();
+  else if(UI.tab==="tider") m.innerHTML = `<button class="link sm" data-act="sset" data-v="" style="margin:4px 0 0;padding-left:0;display:block;text-align:left">‹ Innstillinger</button><h2 class="ptitle">Måltidstider</h2>` + viewTider();
   else m.innerHTML = pb + viewGoals();
 }
 
@@ -644,14 +694,14 @@ function personBar(){
   if(!multi()) return "";
   return `<nav class="pbar" aria-label="Velg person">${people().list.map(p=>{
     const left = withPerson(p.id, ()=> goalsFor(UI.date).kcal - totals(dayDoc(UI.date)).kcal);
-    return `<button class="pchip ${p.id===CUR?"on":""}" data-act="person" data-v="${p.id}" aria-pressed="${p.id===CUR}"><span class="dot" style="background:${pcolor(p)}"></span><span class="pn">${esc(p.name)}</span>${UI.tab==="dag"?`<small class="num ${left<0?"ov":""}">${left<0?"+"+r0(-left)+" over":r0(left)+" igjen"}</small>`:""}</button>`;
+    return `<button class="pchip ${p.id===CUR?"on":""}" data-act="person" data-v="${p.id}" aria-pressed="${p.id===CUR}"><span class="dot" style="background:${pcolor(p)}"></span><span class="pn">${esc(p.name)}</span>${UI.tab==="dag"?`<small class="num ${left< -withPerson(p.id,()=>goalsFor(UI.date).kcal)*0.10?"ov":left<0?"wn":""}">${left<0?"+"+r0(-left)+" over":r0(left)+" igjen"}</small>`:""}</button>`;
   }).join("")}</nav>`;
 }
 function macroRow(label,val,goal,color){
   const pct=Math.min(100, goal? val/goal*100:0);
-  const over = val>goal*1.05, left=goal-val;
-  return `<div class="mrow"><div class="mtop"><b>${label}</b><span class="num left ${left<-0.5?"ov":""}">${left<-0.5?"+"+r0(-left)+" g over":r0(left)+" g igjen"}</span></div>
-  <div class="bar"><i style="width:${pct}%;background:${over?"var(--over)":color}"></i></div><div class="msub num">${r0(val)} av ${r0(goal)} g</div></div>`;
+  const lvl = val>goal*1.10 ? "ov" : val>goal+0.5 ? "wn" : "", left=goal-val;
+  return `<div class="mrow"><div class="mtop"><b>${label}</b><span class="num left ${lvl}">${left<-0.5?"+"+r0(-left)+" g over":r0(left)+" g igjen"}</span></div>
+  <div class="bar"><i style="width:${pct}%;background:${lvl==="ov"?"var(--over)":lvl==="wn"?"var(--warn)":color}"></i></div><div class="msub num">${r0(val)} av ${r0(goal)} g</div></div>`;
 }
 
 function viewDay(){
@@ -662,7 +712,7 @@ function viewDay(){
   let h = UI.date!==todayKey() ? `<button class="todaybtn" data-act="today">Tilbake til i dag</button>` : "";
   h += `<section class="card summary">
     <div class="dial"><svg viewBox="0 0 132 132"><circle cx="66" cy="66" r="56" fill="none" stroke="var(--surface-2)" stroke-width="12"/>
-      <circle cx="66" cy="66" r="56" fill="none" stroke="${over?"var(--over)":"var(--kcal)"}" stroke-width="12" stroke-linecap="round" stroke-dasharray="${C*frac} ${C}"/></svg>
+      <circle cx="66" cy="66" r="56" fill="none" stroke="${t.kcal>g.kcal*1.10?"var(--over)":over?"var(--warn)":"var(--kcal)"}" stroke-width="12" stroke-linecap="round" stroke-dasharray="${C*frac} ${C}"/></svg>
       <div class="center"><div class="big num">${r0(Math.abs(left))}</div><div class="small">${over?"kcal over":"kcal igjen"}</div></div></div>
     <div class="macros">${macroRow("Protein",t.p,g.p,"var(--prot)")}${macroRow("Karbohydrater",t.c,g.c,"var(--carb)")}${macroRow("Fett",t.f,g.f,"var(--fat)")}</div>
     <div class="kline"><span>Spist <b class="num">${r0(t.kcal)}</b> kcal</span><span>Mål <b class="num">${r0(g.kcal)}</b> kcal${g.extra?` <span class="num">(+${r0(g.extra)} trening)</span>`:""}</span></div>
@@ -675,8 +725,8 @@ function viewDay(){
   const yday = dayDoc(addDays(UI.date,-1));
   const sch=daySchedule(UI.date), at={}; sch.forEach(x=>at[x.meal]=x);
   const nx=null;
-  const keys=MEALS.map(x=>x[0]).filter(k=>k!=="pre"||isTraining(UI.date)||hasMeal(d,"pre"));
-  keys.sort((a,b)=>{ const x=at[a]?at[a].at:Infinity, y=at[b]?at[b].at:Infinity; return x===y?0:x-y; });
+  const keys=MEALS.map(x=>x[0]).filter(k=>(k!=="pre"||isTraining(UI.date)||hasMeal(d,"pre"))&&(!MEALS_HIDDEN.has(k)||hasMeal(d,k)));
+  if(!mealCfg()) keys.sort((a,b)=>{ const x=at[a]?at[a].at:Infinity, y=at[b]?at[b].at:Infinity; return x===y?0:x-y; });
   for(const mk of keys){ const ml=meal(mk);
     const es=(d.entries||[]).filter(e=>e.meal===mk);
     const kc=es.reduce((a,e)=>a+e.kcal,0);
@@ -705,6 +755,8 @@ function viewDay(){
       <div class="seg" role="group" aria-label="Drukket vann"><button data-act="waterAns" data-v="ja" class="${ws.ans==="ja"?"on":""}">Ja</button><button data-act="waterAns" data-v="nei" class="${ws.ans==="nei"?"on":""}">Nei</button></div></div>
     ${ws.ans==="ja"?`<div class="row"><label for="waterL" class="note">Hvor mye?</label><input class="inp num" id="waterL" inputmode="decimal" value="${ws.l!=null?fmt1(ws.l):""}" placeholder="valgfritt" style="width:96px;padding:8px 10px"><span class="note">liter</span><button class="btn sm" data-act="waterSave">Lagre</button></div>`:""}
   </section>`;
+  h += (d.note||UI.noteOpen) ? `<section class="card notecard"><label for="dayNote" class="flabel">Notat for dagen</label><textarea class="inp" id="dayNote" rows="2" placeholder="F.eks. syk, bursdag, reise">${esc(d.note||"")}</textarea></section>`
+    : `<div style="text-align:center"><button class="link sm" data-act="noteOpen">+ Notat for dagen</button></div>`;
   h += backupCard();
   return h;
 }
@@ -963,6 +1015,8 @@ function viewMenu(){
   let h=`<h2 class="ptitle">Ukemeny</h2>
    <div class="weekhd"><button data-act="menuWeek" data-v="-7" aria-label="Forrige uke">‹</button><span class="lbl">Uke ${weekNo(mon)} · ${shortDate(mon)}–${shortDate(sun)}</span><button data-act="menuWeek" data-v="7" aria-label="Neste uke">›</button></div>`;
   let n=0;
+  { let can=false; for(let i=0;i<7;i++){ if(!(menuDay(addDays(mon,i)).items||[]).length&&(menuDay(addDays(mon,i-7)).items||[]).length) can=true; }
+    if(can) h+=`<button class="btn ghost block" data-act="menuCopyPrev" style="margin-bottom:10px">Kopier forrige ukes meny</button>`; }
   for(let i=0;i<7;i++){ const k=addDays(mon,i), items=menuDay(k).items||[], wd=WEEKDAYS[parseKey(k).getDay()];
     n+=items.filter(it=>it.slot==="middag").length;
     const rows=items.map(it=>{ const s=menuSrc(it.ref);
@@ -970,6 +1024,7 @@ function viewMenu(){
         return `${multi()?esc(p.name)+" ":""}<b>${esc(menuAmtText(it.ref,it.by[p.id]))}${v?" · "+r0(v.kcal):""}</b>${it.logged&&it.logged[p.id]?" ✓":""}`; }).join("<br>");
       return `<button class="mdish" data-act="menuEdit" data-k="${k}" data-v="${it.id}"><span class="nm"><span>${esc(s?s.name:it.name)}</span><small>${it.slot==="matboks"?"Matboks":s&&s.dish?"Rett":it.ref.t==="tpl"?"Fast måltid":"Matvare"}${s?"":" · finnes ikke lenger"}</small></span><span class="k num">${who}</span></button>`; }).join("");
     const hasDinner=items.some(it=>it.slot==="middag");
+    if(!items.length){ h+=`<section class="card mday empty ${k===today?"today":""}"><div class="dh"><b>${wd[0].toUpperCase()+wd.slice(1)}</b><span>${shortDate(k)}${k===today?" · i dag":""}</span></div><div class="madd"><button class="link sm" data-act="menuAdd" data-k="${k}" data-v="middag">+ Middag</button><button class="link sm" data-act="menuAdd" data-k="${k}" data-v="matboks">+ Matboks</button></div></section>`; continue; }
     h+=`<section class="card mday ${k===today?"today":""}"><div class="dh"><b>${wd[0].toUpperCase()+wd.slice(1)}</b><span>${shortDate(k)}${k===today?" · i dag":""}</span></div>
       ${rows}
       <div class="madd">${hasDinner?"":`<button class="link sm" data-act="menuAdd" data-k="${k}" data-v="middag">+ Middag</button>`}<button class="link sm" data-act="menuAdd" data-k="${k}" data-v="matboks">+ Matboks</button>${hasDinner?`<button class="link sm" data-act="menuAdd" data-k="${k}" data-v="middag">+ Mer til middag</button>`:""}</div></section>`;
@@ -1082,6 +1137,22 @@ function maintKcal(){
   if(!w||!h||!age) return null;
   return (10*w+6.25*h-5*age+(b.sex==="k"?-161:5))*act;
 }
+function calendarCard(){
+  const t=todayKey(), m0=UI.calMonth||t.slice(0,7)+"-01", d0=parseKey(m0), y=d0.getFullYear(), mo=d0.getMonth();
+  const first=new Date(y,mo,1), lastDay=new Date(y,mo+1,0).getDate(), lead=(first.getDay()+6)%7;
+  let cells=""; for(let i=0;i<lead;i++) cells+=`<span class="blank"></span>`;
+  let nOk=0,nLog=0;
+  for(let dd=1; dd<=lastDay; dd++){ const k=`${y}-${String(mo+1).padStart(2,"0")}-${String(dd).padStart(2,"0")}`, doc=S.docs[pk("day-")+k];
+    const tt=doc?totals(doc):null, g=goalsFor(k); let cls="";
+    if(k>t) cls="fut"; else if(tt&&tt.kcal>0){ nLog++; const r=tt.kcal/(g.kcal||1); cls = r>1.10?"ov":r>1.02?"wn":r<0.8?"lo":"ok"; if(cls==="ok") nOk++; }
+    cells+=`<button class="${cls} ${k===t?"td":""}" data-act="openDay" data-v="${k}" ${k>t?"disabled":""} aria-label="${dateLabel(k)}">${dd}${doc&&doc.note?"<i></i>":""}</button>`; }
+  const prevM=new Date(y,mo-1,1), nextM=new Date(y,mo+1,1), key=x=>`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,"0")}-01`;
+  return `<div class="sect">Måned</div><section class="card">
+    <div class="weekhd" style="margin-bottom:8px"><button data-act="calMonth" data-v="${key(prevM)}" aria-label="Forrige måned">‹</button><span class="lbl">${["Januar","Februar","Mars","April","Mai","Juni","Juli","August","September","Oktober","November","Desember"][mo]} ${y}</span><button data-act="calMonth" data-v="${key(nextM)}" ${key(nextM)>t?"disabled":""} aria-label="Neste måned">›</button></div>
+    <div class="cal">${["Ma","Ti","On","To","Fr","Lø","Sø"].map(x=>`<span class="wd">${x}</span>`).join("")}${cells}</div>
+    <div class="callg"><span><i style="background:var(--accent)"></i>På målet</span><span><i style="background:var(--warn)"></i>Litt over</span><span><i style="background:var(--over)"></i>Over 10 %</span><span><i style="border:1.5px solid var(--accent)"></i>Under 80 %</span><span>• notat</span></div>
+    <div class="note num" style="margin-top:6px">${nLog} dager logget, ${nOk} på målet.</div></section>`;
+}
 function viewHist(){
   const t=todayKey(), N=14, base=goals(), days=[];
   for(let i=N-1;i>=0;i--){ const k=addDays(t,-i), d=S.docs[pk("day-")+k], tt=d?totals(d):null, g=goalsFor(k);
@@ -1091,7 +1162,7 @@ function viewHist(){
   const bw=(W-pl-pr)/N, y=v=>pt+(H-pt-pb)*(1-v/kmax);
   let cols="", labels="";
   days.forEach((x,i)=>{ const v=x.t?x.t.kcal:0, X=pl+i*bw+3, cx=X+(bw-6)/2;
-    if(v>0) cols+=`<rect x="${X}" y="${y(v)}" width="${bw-6}" height="${y(0)-y(v)}" rx="3" fill="${v>x.g.kcal*1.05?"var(--over)":"var(--bar)"}"/>`;
+    if(v>0) cols+=`<rect x="${X}" y="${y(v)}" width="${bw-6}" height="${y(0)-y(v)}" rx="3" fill="${v>x.g.kcal*1.10?"var(--over)":v>x.g.kcal*1.02?"var(--warn)":"var(--bar)"}"/>`;
     if(x.hit) cols+=`<circle cx="${cx}" cy="${y(v)-7}" r="3.2" fill="var(--prot)"/>`;
     cols+=`<rect x="${pl+i*bw}" y="${pt}" width="${bw}" height="${H-pt}" fill="transparent" data-act="openDay" data-v="${x.k}" style="cursor:pointer"><title>${dateLabel(x.k)}</title></rect>`;
     if(i%2===1||i===N-1){ const d=parseKey(x.k); labels+=`<text x="${cx}" y="${H-6}" text-anchor="middle" font-size="9" fill="var(--muted)">${d.getDate()}.${d.getMonth()+1}</text>`; } });
@@ -1209,6 +1280,33 @@ function weightSection(){
       ${rows.length>5?`<button class="link sm" data-act="allW">${UI.allW?"Vis færre":`Vis alle (${rows.length})`}</button>`:""}`:""}
   </section>`;
 }
+const MEAS=[["waist","Midje"],["hip","Hofte"],["arm","Arm"]];
+const measDoc = () => S.docs[pk("measures")] || {kind:"measures",items:{}};
+function measureSection(){
+  const ms=Object.entries(measDoc().items||{}).sort((a,b)=>a[0]<b[0]?-1:1), t=todayKey(), rows=ms.slice().reverse();
+  const first=k=>{ const x=ms.find(([,v])=>v[k]!=null); return x?x[1][k]:null; }, lastv=k=>{ const x=rows.find(([,v])=>v[k]!=null); return x?x[1][k]:null; };
+  let chart="";
+  const wv=ms.filter(([,v])=>v.waist!=null);
+  if(wv.length>=2){ const W=340,H=90,pl=30,pr=8,pt=8,pb=16, vals=wv.map(x=>x[1].waist), mn=Math.min(...vals)-1, mx=Math.max(...vals)+1;
+    const d0=parseKey(wv[0][0]), span=Math.max(1,(parseKey(wv[wv.length-1][0])-d0)/864e5);
+    const X=k=>pl+(W-pl-pr)*((parseKey(k)-d0)/864e5)/span, Y=v=>pt+(H-pt-pb)*(1-(v-mn)/(mx-mn));
+    const path=wv.map(([k,v],i)=>(i?"L":"M")+X(k).toFixed(1)+" "+Y(v.waist).toFixed(1)).join(" ");
+    chart=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" role="img" aria-label="Midjemål over tid"><text x="${pl-4}" y="${(Y(mx-1)+3).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--muted)">${fmt1(mx-1)}</text><text x="${pl-4}" y="${(Y(mn+1)+3).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--muted)">${fmt1(mn+1)}</text><path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2"/>${wv.map(([k,v])=>`<circle cx="${X(k).toFixed(1)}" cy="${Y(v.waist).toFixed(1)}" r="2.5" fill="var(--accent)"/>`).join("")}<text x="${pl}" y="${H-3}" font-size="9" fill="var(--muted)">midje (cm)</text></svg>`; }
+  const sum=MEAS.map(([k,l])=>{ const a=first(k), b=lastv(k); if(b==null) return ""; const dv=a!=null&&ms.length>1?b-a:null;
+    return `<div><b class="num">${fmt1(b)}</b><span>${l}${dv?` ${dv>0?"+":"−"}${fmt1(Math.abs(dv))}`:""}</span></div>`; }).join("");
+  return `<section class="card" style="display:flex;flex-direction:column;gap:10px">
+    <div class="grid3">${MEAS.map(([k,l])=>`<div class="field"><label for="ms-${k}">${l} (cm)</label><input class="inp num" id="ms-${k}" inputmode="decimal" placeholder="${lastv(k)!=null?fmt1(lastv(k)):"cm"}"></div>`).join("")}</div>
+    <button class="btn primary block" data-act="logMeasure">Logg kroppsmål</button>
+    ${sum?`<div class="gnums">${sum}</div><div class="note" style="text-align:center;margin-top:-4px">Endring siden første måling</div>`:`<div class="note">Mål med målebånd i samme høyde hver gang, gjerne hver 2.–4. uke. Midjemålet viser fettap selv når vekta står stille.</div>`}
+    ${chart}
+    ${rows.length?`<div class="wlist">${rows.slice(0,UI.allM?99:4).map(([k,v])=>`<button data-act="editMeasure" data-v="${k}"><span>${dateLabel(k)}</span><span class="num">${MEAS.filter(([mk])=>v[mk]!=null).map(([mk,ml])=>`${ml.toLowerCase()} <b>${fmt1(v[mk])}</b>`).join(" · ")}</span></button>`).join("")}</div>
+      ${rows.length>4?`<button class="link sm" data-act="allM">${UI.allM?"Vis færre":`Vis alle (${rows.length})`}</button>`:""}`:""}
+  </section>`;
+}
+function sheetMeasure(s){ const v=(measDoc().items||{})[s.date]||{};
+  return `<div class="grid3">${MEAS.map(([k,l])=>`<div class="field"><label for="me-${k}">${l} (cm)</label><input class="inp num" id="me-${k}" inputmode="decimal" value="${v[k]!=null?fmt1(v[k]):""}"></div>`).join("")}</div>
+   <div class="field"><label for="meDate">Dato</label><input class="inp num" type="date" id="meDate" value="${s.date}" max="${todayKey()}"></div>
+   <button class="btn primary block" data-act="saveMeasureEdit">Lagre</button><button class="btn danger block" data-act="deleteMeasure">Slett måling</button>`; }
 function viewGoals(){
   const g=goals(), prof=(S.docs[pk("profile")]||{}).body||{};
   const ws=Object.entries(weightsDoc().items||{}).sort((a,b)=>a[0]<b[0]?-1:1);
@@ -1223,7 +1321,12 @@ function viewGoals(){
   const lastW = ws.length? ws[ws.length-1][1] : prof.weight||"";
   const gm = (morningDoc().items||{})[todayKey()] || {};
   const pl=people().list;
-  return `    <div class="sect">Daglige mål${multi()?" for "+esc(personOf(CUR).name):""}</div><section class="card" style="display:flex;flex-direction:column;gap:12px">
+  const gOpen=!!UI.goalsOpen;
+  return `    <div class="sect">Vekt</div>${weightSection()}
+    <div class="sect">Kroppsmål</div>${measureSection()}
+    <div class="sect">Mål${multi()?" for "+esc(personOf(CUR).name):""}</div>
+    <button class="gtoggle ${gOpen?"open":""}" data-act="goalsOpen" aria-expanded="${gOpen}"><span><b class="num">${r0(g.kcal)} kcal · P ${r0(g.p)} · K ${r0(g.c)} · F ${r0(g.f)}</b><small>Daglige mål og utregning</small></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+    ${gOpen?`<div class="sect">Daglige mål</div><section class="card" style="display:flex;flex-direction:column;gap:12px">
     <div class="grid2"><div class="field"><label for="gk">Kalorier (kcal)</label><input class="inp num" id="gk" inputmode="numeric" value="${r0(g.kcal)}"></div>
     <div class="field"><label for="gp">Protein (g)</label><input class="inp num" id="gp" inputmode="numeric" value="${r0(g.p)}"></div>
     <div class="field"><label for="gc">Karbohydrater (g)</label><input class="inp num" id="gc" inputmode="numeric" value="${r0(g.c)}"></div>
@@ -1242,26 +1345,36 @@ function viewGoals(){
     <div class="field"><label for="cgoal">Målsetting</label><select class="inp" id="cgoal">
       ${[["-1000","Gå raskt ned (ca. 1 kg/uke)"],["-500","Gå ned i vekt (ca. 0,5 kg/uke)"],["-250","Gå rolig ned"],["0","Holde vekten"],["250","Bygge muskler (rolig opp)"]].map(([v,l])=>`<option value="${v}" ${String(prof.goal??"0")===v?"selected":""}>${l}</option>`).join("")}</select></div>
     <button class="btn block" data-act="calc">Regn ut og fyll inn</button>
-    <div class="note">Bruker Mifflin–St Jeor-formelen. Protein settes til ca. 1,8–2,2 g per kg, fett til 25–30 % av kaloriene og resten karbohydrater.</div></section>
-
-    <div class="sect">Vekt</div>${weightSection()}
+    <div class="note">Bruker Mifflin–St Jeor-formelen. Protein settes til ca. 1,8–2,2 g per kg, fett til 25–30 % av kaloriene og resten karbohydrater.</div></section>`:""}
 `;
 }
 
 function myFoodsList(q){ q=(q||"").trim().toLowerCase();
   const prods=Object.values(foodsDoc().items||{}).filter(p=>!q||p.name.toLowerCase().includes(q)||(p.barcode||"").includes(q)).sort((a,b)=>a.name.localeCompare(b.name,"nb"));
   return prods.length?`<div class="list">${prods.map(p=>`<button data-act="editProduct" data-v="${p.id}"><span class="nm">${esc(p.name)}${p.barcode?`<br><small class="num">${esc(p.barcode)}</small>`:""}</span><small class="num">${r0(p.per.kcal)} kcal/100 g</small></button>`).join("")}</div>`:`<div class="note">Ingen treff.</div>`; }
+function saveMealCfg(list){ const st=clone(S.docs.settings||{kind:"settings"}); st.kind="settings"; st.mealCfg=list.map(x=>({k:x.k,label:x.label,hidden:!!x.hidden})); writeDoc("settings",st); }
+function settingsMeals(){
+  const cfg=mealCfg()||MEALS_BASE.map(([k,l])=>({k,label:l}));
+  const list=MEALS.map(([k,l])=>({k,label:l,hidden:MEALS_HIDDEN.has(k)}));
+  return `<section class="card">${list.map((m,i)=>`<div class="mcfg ${m.hidden?"hid":""}"><input class="inp" data-mlabel="${m.k}" value="${esc(m.label)}" aria-label="Navn på måltid">
+    <button class="mv" data-act="mealMove" data-v="${m.k}" data-k="-1" ${i===0?"disabled":""} aria-label="Flytt opp">↑</button><button class="mv" data-act="mealMove" data-v="${m.k}" data-k="1" ${i===list.length-1?"disabled":""} aria-label="Flytt ned">↓</button>
+    <label class="tgl" style="flex-shrink:0"><input type="checkbox" data-mshow="${m.k}" ${m.hidden?"":"checked"}><span class="note">Vis</span></label></div>`).join("")}</section>
+   <div class="note" style="margin-top:8px">Rekkefølgen her bestemmer rekkefølgen på Dag. Skjulte måltider vises likevel hvis det er logget noe i dem. «Pre-workout» vises bare på treningsdager.${mealCfg()?"":" Uten egne valg sorteres måltidene etter tidene i «Måltidstider»."}</div>
+   ${mealCfg()?`<button class="btn ghost block" data-act="mealReset" style="margin-top:10px">Tilbakestill</button>`:""}`;
+}
+const SSUB={people:"Personer",meals:"Måltider",plan:"Faste måltider og trening",food:"Matvarer og Kassalapp",data:"Coach og backup"};
 function viewSettings(){
-  const pl=people().list;
-  return `<h2 class="ptitle">Innstillinger</h2>
-    <div class="sect">Farger</div><section class="card"><div class="seg" role="group" aria-label="Fargetema">${[["","Monokrom"],["lime","Lime"],["is","Is"]].map(([k,l])=>`<button data-act="setPal" data-v="${k}" class="${((S.docs.settings||{}).palette||"")===k?"on":""}">${l}</button>`).join("")}</div></section>
-    <div class="sect">Personer</div><section class="card" style="display:flex;flex-direction:column;gap:10px">
+  const pl=people().list, sub=UI.sset||"";
+  if(sub&&SSUB[sub]){
+    let body="";
+    if(sub==="people") body=`    <div class="sect">Personer</div><section class="card" style="display:flex;flex-direction:column;gap:10px">
     <div class="list plist">${pl.map(p=>`<button data-act="editPerson" data-v="${p.id}"><span class="nm"><span class="dot" style="background:${pcolor(p)}"></span>${esc(p.name)}${p.id===CUR?'<span class="tag">valgt</span>':""}</span><small>Endre</small></button>`).join("")}</div>
     <button class="btn ghost block" data-act="newPerson">+ Legg til person</button>
     <div class="note">Hver person har egne mål, egen logg, plan og vekt. Matvarer og faste måltider er felles. Når du logger mat, kan du også logge den for de andre.</div></section>
-${viewPlan()}
-    <div class="sect">Måltidstider og varsler</div><div class="list"><button data-act="tab" data-v="tider"><span class="nm">Når skal jeg spise?<br><small>Kalkulator, faste tider og påminnelser${plan().reminders?" (varsler på)":""}</small></span><span aria-hidden="true">›</span></button></div>
-    <div class="sect">Mine matvarer (${Object.keys(foodsDoc().items||{}).length})</div>
+`;
+    else if(sub==="meals") body=settingsMeals();
+    else if(sub==="plan") body=viewPlan();
+    else if(sub==="food") body=`    <div class="sect">Mine matvarer (${Object.keys(foodsDoc().items||{}).length})</div>
     ${Object.keys(foodsDoc().items||{}).length?`<input class="inp" id="foodQ" placeholder="Søk i mine matvarer" autocomplete="off" style="margin-bottom:8px"><div id="myFoods">${myFoodsList("")}</div>`
       :`<section class="card note">Varer du skanner eller legger inn selv havner her, så du finner dem raskt neste gang.</section>`}
     <div class="sect" id="kassal">Norske butikkvarer (Kassalapp)</div><section class="card" style="display:flex;flex-direction:column;gap:10px">
@@ -1271,7 +1384,8 @@ ${viewPlan()}
     <a class="btn ghost block" href="https://kassal.app/profil/api" target="_blank" rel="noopener" style="text-align:center;text-decoration:none;color:var(--fg)">Åpne kassal.app</a>`}
     <div class="field"><label for="kKey">API-nøkkel</label><input class="inp" id="kKey" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(kassalKey())}" placeholder="Lim inn nøkkelen"></div>
     <button class="btn primary block" data-act="saveKey" ${UI.kasStatus==="testing"?"disabled":""}>Lagre og test</button></section>
-    <div class="sect">Coach (Google Sheets)</div><section class="card" style="display:flex;flex-direction:column;gap:10px">
+`;
+    else if(sub==="data") body=`    <div class="sect">Coach (Google Sheets)</div><section class="card" style="display:flex;flex-direction:column;gap:10px">
     <div class="note">Sender mat og vekt for alle personer til regnearket ditt, så Claude kan følge med. Lim inn nettapp-adressen fra Apps Script (slutter på /exec).</div>
     <div class="field"><label for="sheetUrl">Nettapp-adresse</label><input class="inp" id="sheetUrl" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(sheetUrl())}" placeholder="https://script.google.com/macros/s/…/exec"></div>
     <button class="btn primary block" data-act="saveSheet">Lagre og send</button>
@@ -1283,6 +1397,21 @@ ${viewPlan()}
     <button class="btn primary block" data-act="exportData">Del backup</button>
     <div class="field"><label for="backupTxt">Gjenopprett: lim inn backup-teksten her</label><textarea class="inp" id="backupTxt" rows="3"></textarea></div>
     <button class="btn ghost block" data-act="importData">Gjenopprett fra backup</button></section>
+`;
+    return `<button class="link sm backlink" data-act="sset" data-v="">‹ Innstillinger</button><h2 class="ptitle">${SSUB[sub]}</h2>`+body;
+  }
+  const nT=Object.keys(mealsDoc().items||{}).length, nF=Object.keys(foodsDoc().items||{}).length, bk=backupInfo().days;
+  const row=(k,title,sm)=>`<button data-act="sset" data-v="${k}"><span class="nm">${title}<small>${sm}</small></span><span aria-hidden="true">›</span></button>`;
+  return `<h2 class="ptitle">Innstillinger</h2>
+    <div class="sect">Farger</div><section class="card"><div class="seg" role="group" aria-label="Fargetema">${[["","Monokrom"],["lime","Lime"],["is","Is"]].map(([k,l])=>`<button data-act="setPal" data-v="${k}" class="${((S.docs.settings||{}).palette||"")===k?"on":""}">${l}</button>`).join("")}</div></section>
+    <div class="list setnav">
+      ${row("people","Personer",pl.map(p=>esc(p.name)).join(", "))}
+      ${row("meals","Måltider","Navn, rekkefølge og hvilke som vises")}
+      ${row("plan","Faste måltider og trening",`${nT} faste måltider · treningsdager`)}
+      <button data-act="tab" data-v="tider"><span class="nm">Måltidstider og varsler<small>Kalkulator, faste tider og påminnelser${plan().reminders?" (varsler på)":""}</small></span><span aria-hidden="true">›</span></button>
+      ${row("food","Matvarer og Kassalapp",`${nF} egne matvarer · Kassalapp ${kassalKey()?"koblet til":"ikke koblet til"}`)}
+      ${row("data","Coach og backup",bk==null?"Ingen backup tatt ennå":bk===0?"Siste backup i dag":`Siste backup for ${bk} ${bk===1?"dag":"dager"} siden`)}
+    </div>
     <div class="sect">Om appen</div><section class="card" style="display:flex;flex-direction:column;gap:10px">
     <div class="note num">Versjon ${esc(window.Android&&Android.appVersion?Android.appVersion():"nett")} · innhold ${esc((document.querySelector('meta[name="web-version"]')||{}).content||"")}</div>
     ${UPD.info?updateBanner():`<button class="btn ghost block" data-act="checkUpdates">Se etter oppdateringer</button>`}</section>`;
@@ -1308,6 +1437,7 @@ function renderSheet(){
   else if(s.type==="tpl"){ title=UI.tplDraft.dish?(UI.tplDraft.id?"Endre rett":"Ny rett"):UI.tplDraft.id&&tplById(UI.tplDraft.id)?"Endre fast måltid":"Nytt fast måltid"; body=UI.tplDraft.dish?sheetDish():sheetTpl(); }
   else if(s.type==="copyMeal"){ title=s.mk==="*"?"Kopier hele dagen":meal(s.mk)+": kopier"; body=sheetCopyMeal(s); }
   else if(s.type==="weight"){ title="Endre vekt"; body=sheetWeight(s); }
+  else if(s.type==="measure"){ title="Endre kroppsmål"; body=sheetMeasure(s); }
   else if(s.type==="amount"){ title=s.entryId?"Endre":"Mengde"; body=sheetAmount(s); }
   else if(s.type==="product"){ title=s.id?"Endre matvare":"Ny matvare"; body=sheetProduct(s); }
   else if(s.type==="scan"){ title="Strekkode"; body=sheetScan(s); }
@@ -1415,6 +1545,12 @@ function onlineSection(s,q,key,label){
   if(!st.res.length) return "";
   return `<div class="sect">${label}</div><div class="list">${st.res.map((f,i)=>`<button data-act="pickOnline" data-v="${key}:${i}"><span class="nm">${esc(f.name)}<br><small class="num">${r0(f.per.kcal)} kcal · P ${fmt1(f.per.p)} · K ${fmt1(f.per.c)} · F ${fmt1(f.per.f)} per 100 g</small></span></button>`).join("")}</div>`;
 }
+function quickRow(f,pickAct,logAct,i){ const g=f.lastG>0?f.lastG:null, vv=g?calc(f.per,g):null;
+  if(!g) return foodRow(f,pickAct);
+  return `<div class="rrow"><button data-act="${pickAct}" data-v="${esc(f.id)}"><span class="nm">${esc(f.name)}<br><small class="num">Sist: ${r0(g)} g · ${r0(vv.kcal)} kcal · P ${r0(vv.p)} · K ${r0(vv.c)} · F ${r0(vv.f)}</small></span></button><button class="btn primary plus" data-act="${logAct}" data-v="${i}" aria-label="Logg ${esc(f.name)}, ${r0(g)} g">+</button></div>`; }
+function logFoodNow(f,g,mk){ const v2=calc(f.per,g), d=clone(dayDoc(UI.date)); d.kind="day"; d.date=UI.date; d.entries=d.entries||[];
+  d.entries.push({id:uid(),meal:mk,name:f.name,g,per:f.per,portion:f.portion||null,foodId:f.foodId||(f.base||!f.id||/^[ru]\d+$/.test(f.id)?null:f.id),kcal:v2.kcal,p:v2.p,f:v2.f,c:v2.c});
+  writeDoc(pk("day-")+UI.date,d); toast(`${f.name}, ${r0(g)} g lagt til i ${meal(mk).toLowerCase()}`); }
 function recentFoods(){
   const seen=new Set(), out=[];
   const ks=Object.keys(S.docs).filter(k=>k.startsWith(pk("day-"))).sort().reverse();
@@ -1462,9 +1598,9 @@ function sheetPick(s){
     if(MVT.foods&&gen.length) h+=`<div class="note">Kilde for generelle matvarer: Matvaretabellen, Mattilsynet.</div>`; }
   else { const tpls=Object.values(mealsDoc().items||{});
     if(tpls.length && s.meal!=="tpl") h+=`<div class="sect">Faste måltider</div><div class="list">${tpls.map(t=>`<button data-act="logTpl" data-v="${t.id}"><span class="nm">${esc(t.name)}<br><small class="num">${t.items.length} ting · ${r0(tplTotals(t).kcal)} kcal</small></span></button>`).join("")}</div>`;
-    const rec=recentFoods(); if(rec.length) h+=`<div class="sect">Nylig brukt</div><div class="list">${rec.map(f=>foodRow(f,"pickRecent")).join("")}</div>`;
+    const rec=recentFoods(); s.rec=rec; if(rec.length) h+=`<div class="sect">Nylig brukt</div><div class="list">${rec.map((f,i)=>quickRow(f,"pickRecent","logRecent",i)).join("")}</div>`;
     const used=mostUsed(new Set(rec.map(f=>f.name.toLowerCase()))); s.used=used;
-    if(used.length) h+=`<div class="sect">Mest brukt</div><div class="list">${used.map(f=>foodRow(f,"pickUsed")).join("")}</div>`;
+    if(used.length) h+=`<div class="sect">Mest brukt</div><div class="list">${used.map((f,i)=>quickRow(f,"pickUsed","logUsed",i)).join("")}</div>`;
     if(!rec.length) h+=`<div class="sect">Forslag</div><div class="list">${BASE.slice(0,12).map(f=>foodRow(f,"pickFood")).join("")}</div>`; }
   return h;
 }
@@ -1732,7 +1868,7 @@ function readProductForm(){
   return {name:$("#pn").value.trim(),kcal:$("#pk").value,p:$("#pp").value,c:$("#pc").value,f:$("#pf").value,porLabel:$("#pporl").value.trim(),porG:$("#pporg").value,barcode:$("#pbc").value.replace(/\D/g,"")};
 }
 
-const UNDO_ACTS=new Set(["menuLog","copyMealDo","saveAmount","saveQuick","copyY","deleteEntry","logTpl","logSlotTpl","slotLog","slotWaterOnly","addEstimate"]);
+const UNDO_ACTS=new Set(["logRecent","logUsed","menuLog","copyMealDo","saveAmount","saveQuick","copyY","deleteEntry","logTpl","logSlotTpl","slotLog","slotWaterOnly","addEstimate"]);
 document.addEventListener("click", async ev=>{
   const t=ev.target.closest("[data-act]"); if(!t) return;
   const a=t.dataset.act, v=t.dataset.v;
@@ -1742,8 +1878,9 @@ document.addEventListener("click", async ev=>{
   else if(a==="today"){ UI.date=todayKey(); render(); }
   else if(a==="pickDate"){ const el=$("#datePick"); el.value=UI.date; el.max=todayKey(); try{ el.showPicker(); }catch(e){ el.style.pointerEvents="auto"; el.focus(); el.click(); } }
   else if(a==="openDay"){ UI.tab="dag"; UI.date=v; window.scrollTo(0,0); render(); }
-  else if(a==="settings"){ UI.tab = UI.tab==="innst" ? "dag" : "innst"; window.scrollTo(0,0); render(); }
-  else if(a==="gotoKassal"){ UI.sheet=null; UI.addTarget=null; renderSheet(); UI.tab="innst"; render();
+  else if(a==="settings"){ UI.tab = UI.tab==="innst"&&!UI.sset ? "dag" : "innst"; UI.sset=""; window.scrollTo(0,0); render(); }
+  else if(a==="sset"){ UI.sset=v||""; UI.tab="innst"; window.scrollTo(0,0); render(); }
+  else if(a==="gotoKassal"){ UI.sheet=null; UI.addTarget=null; renderSheet(); UI.tab="innst"; UI.sset="food"; render();
     setTimeout(()=>{ const el=document.getElementById("kassal"); if(el) el.scrollIntoView({block:"start"}); },50); }
   else if(a==="pickUsed"){ const f=(UI.sheet.used||[]).find(x=>x.id===v); if(f) openAmount({id:f.foodId,name:f.name,per:f.per,portion:f.portion,base:!f.foodId}, UI.sheet.meal, {lastG:f.lastG}); }
   else if(a==="waterAns"){ const d=clone(dayDoc(UI.date)); d.kind="day"; d.date=UI.date; d.waterAns=v; if(v==="nei"){ d.waterL=null; d.water=0; } writeDoc(pk("day-")+UI.date,d);
@@ -1976,6 +2113,27 @@ Svar KUN med JSON: {"items":[{"name":"kort norsk navn","grams":tall,"kcal":tall,
     const wd=clone(weightsDoc()); wd.kind="weights"; wd.items=wd.items||{}; delete wd.items[s.date]; wd.items[k]=w; closeSheet(); writeDoc(pk("weights"),wd); toast("Vekt endret"); }
   else if(a==="deleteWeight"){ const s=UI.sheet, wd=clone(weightsDoc()); wd.kind="weights"; wd.items=wd.items||{}; delete wd.items[s.date]; closeSheet(); writeDoc(pk("weights"),wd); toast("Måling slettet"); }
   else if(a==="setPal"){ const st=clone(S.docs.settings||{kind:"settings"}); st.kind="settings"; st.palette=v||""; writeDoc("settings",st); }
+  else if(a==="logRecent"||a==="logUsed"){ const list=a==="logRecent"?UI.sheet.rec:UI.sheet.used, f=list&&list[Number(v)]; if(!f) return;
+    const mk=UI.sheet.meal&&UI.sheet.meal!=="tpl"?UI.sheet.meal:guessMeal(); closeSheet(); logFoodNow(f,f.lastG,mk); }
+  else if(a==="noteOpen"){ UI.noteOpen=true; render(); setTimeout(()=>{ const el=$("#dayNote"); if(el) el.focus(); },30); }
+  else if(a==="calMonth"){ UI.calMonth=v; render(); }
+  else if(a==="goalsOpen"){ UI.goalsOpen=!UI.goalsOpen; render(); }
+  else if(a==="allM"){ UI.allM=!UI.allM; render(); }
+  else if(a==="logMeasure"){ const rec={}; for(const [k] of MEAS){ const x=numIn($("#ms-"+k).value); if(x>=20&&x<=250) rec[k]=x; }
+    if(!Object.keys(rec).length){ toast("Skriv inn minst ett mål i cm"); return; }
+    const md=clone(measDoc()); md.kind="measures"; md.items=md.items||{}; md.items[todayKey()]=Object.assign(md.items[todayKey()]||{},rec); writeDoc(pk("measures"),md); toast("Kroppsmål logget"); }
+  else if(a==="editMeasure"){ openSheet({type:"measure",date:v}); }
+  else if(a==="saveMeasureEdit"){ const s=UI.sheet, rec={}; for(const [k] of MEAS){ const x=numIn($("#me-"+k).value); if(x>=20&&x<=250) rec[k]=x; }
+    const k2=$("#meDate").value||s.date, md=clone(measDoc()); md.kind="measures"; md.items=md.items||{}; delete md.items[s.date]; if(Object.keys(rec).length) md.items[k2]=rec;
+    closeSheet(); writeDoc(pk("measures"),md); toast("Kroppsmål lagret"); }
+  else if(a==="deleteMeasure"){ const s=UI.sheet, md=clone(measDoc()); md.kind="measures"; md.items=md.items||{}; delete md.items[s.date]; closeSheet(); writeDoc(pk("measures"),md); toast("Måling slettet"); }
+  else if(a==="mealMove"){ const list=MEALS.map(([k,l])=>({k,label:l,hidden:MEALS_HIDDEN.has(k)})), i=list.findIndex(x=>x.k===v), j=i+Number(t.dataset.k||0);
+    if(i<0||j<0||j>=list.length) return; [list[i],list[j]]=[list[j],list[i]]; saveMealCfg(list); }
+  else if(a==="mealReset"){ const st=clone(S.docs.settings||{kind:"settings"}); st.kind="settings"; delete st.mealCfg; writeDoc("settings",st); toast("Måltidene er tilbakestilt"); }
+  else if(a==="menuCopyPrev"){ const mon=UI.menuWeek||mondayOf(todayKey()); let n=0;
+    saveMenu(m=>{ for(let i=0;i<7;i++){ const k=addDays(mon,i), src=(m.days[addDays(mon,i-7)]||{}).items||[]; if(((m.days[k]||{}).items||[]).length||!src.length) continue;
+      m.days[k]={items:src.map(it=>Object.assign(clone(it),{id:uid(),logged:{}}))}; n+=src.length; } });
+    toast(n?`${n} ${n===1?"rett":"retter"} kopiert fra forrige uke`:"Ingenting å kopiere"); }
   else if(a==="gmToggle"){ UI.gmOpen=!UI.gmOpen; render(); }
   else if(a==="backupLater"){ const st=clone(S.docs.settings||{kind:"settings"}); st.kind="settings"; st.backupSnooze=Date.now()+7*864e5; writeDoc("settings",st); }
   else if(a==="copyMeal"){ const others=people().list.filter(x=>x.id!==CUR); const to={}; if(others[0]) to[others[0].id]=true; openSheet({type:"copyMeal",mk:v,pct:100,to}); }
@@ -2012,6 +2170,10 @@ document.addEventListener("change", ev=>{
   if(ev.target.id==="amtMeal" && UI.sheet) UI.sheet.meal=ev.target.value;
   if(ev.target.id==="datePick" && ev.target.value){ UI.date=ev.target.value; ev.target.style.pointerEvents="none"; render(); }
   if(ev.target.matches("[data-pl]")) savePlanForm();
+  if(ev.target.id==="dayNote"){ const d=clone(dayDoc(UI.date)); d.kind="day"; d.date=UI.date; const tx=ev.target.value.trim(); if(tx) d.note=tx; else delete d.note; UI.noteOpen=false; writeDoc(pk("day-")+UI.date,d); toast(tx?"Notat lagret":"Notat fjernet"); }
+  if(ev.target.dataset&&(ev.target.dataset.mlabel||ev.target.dataset.mshow)){ const list=MEALS.map(([k,l])=>({k,label:l,hidden:MEALS_HIDDEN.has(k)}));
+    const m=list.find(x=>x.k===(ev.target.dataset.mlabel||ev.target.dataset.mshow)); if(!m) return;
+    if(ev.target.dataset.mlabel) m.label=ev.target.value.trim()||MEALS_BASE.find(b=>b[0]===m.k)[1]; else m.hidden=!ev.target.checked; saveMealCfg(list); }
   if(ev.target.id==="wTargetDate"){ const pr=clone(S.docs[pk("profile")]||{kind:"profile"}); pr.kind="profile"; pr.targetDate=ev.target.value||null; writeDoc(pk("profile"),pr); }
   if(ev.target.id==="wTarget"){ const pr=clone(S.docs[pk("profile")]||{kind:"profile"}); pr.kind="profile"; const v=numIn(ev.target.value); pr.targetWeight = v>=20&&v<=400 ? v : null; writeDoc(pk("profile"),pr); toast(pr.targetWeight?`Målvekt: ${fmt1(v)} kg`:"Målvekt fjernet"); }
   if(ev.target.dataset && ev.target.dataset.cm && UI.sheet && UI.sheet.to){ UI.sheet.to[ev.target.dataset.cm]=ev.target.checked; }

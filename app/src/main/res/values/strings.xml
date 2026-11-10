@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sc_scan">Skann strekkode</string>
+    <string name="sc_scan_s">Skann</string>
+    <string name="sc_weight">Logg vekt</string>
+    <string name="sc_weight_s">Vekt</string>
+    <string name="sc_quick">Hurtiglogg</string>
+    <string name="sc_quick_s">Hurtiglogg</string>
+</resources>
