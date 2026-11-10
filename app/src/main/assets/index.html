@@ -1,31 +1,31 @@
-<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="18"><title>Makrologg</title>
+<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="19"><title>Makrologg</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
 <style>
 /* Layout: one-column phone app — summary dial on top, meal cards, bottom tab bar, sheets slide up for adding food */
 :root{
-  --bg:#eef2f1; --surface:#ffffff; --surface-2:#e3e9e7; --line:#d3dcd9;
-  --fg:#14211e; --muted:#5b6b67;
-  --accent:#0f6b5c; --accent-fg:#ffffff; --accent-soft:#d5ebe5;
-  --prot:#2e64c8; --fat:#d08a14; --carb:#8f4fc4; --kcal:#0f6b5c;
-  --over:#c2412d; --ok:#2f8a4a;
+  --bg:#f4f4f4; --surface:#ffffff; --surface-2:#ebebeb; --line:#dcdcdc;
+  --fg:#0a0a0a; --muted:#6b6b6b;
+  --accent:#0a0a0a; --accent-fg:#ffffff; --accent-soft:#e6e6e6;
+  --prot:#3a3a3a; --fat:#a8a8a8; --carb:#757575; --kcal:#0a0a0a;
+  --over:#d23a2e; --ok:#4a4a4a; --bar:#b5b5b5;
   --shadow:0 1px 2px rgba(20,33,30,.06),0 6px 20px rgba(20,33,30,.07);
   --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
   --body:"Figtree",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
   --r:16px;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#0d1513; --surface:#16211e; --surface-2:#1f2c29; --line:#2a3a36;
-  --fg:#e6efec; --muted:#93a5a0;
-  --accent:#4cc3a8; --accent-fg:#06201a; --accent-soft:#16352e;
-  --prot:#6f9cf0; --fat:#e9aa45; --carb:#bb86ec; --kcal:#4cc3a8;
-  --over:#f07a64; --ok:#5cc47a; --shadow:none; color-scheme:dark}}
+  --bg:#000000; --surface:#121212; --surface-2:#1e1e1e; --line:#2c2c2c;
+  --fg:#f2f2f2; --muted:#8a8a8a;
+  --accent:#ffffff; --accent-fg:#000000; --accent-soft:#2a2a2a;
+  --prot:#d0d0d0; --fat:#6a6a6a; --carb:#9a9a9a; --kcal:#ffffff;
+  --over:#ff5a4f; --ok:#bdbdbd; --bar:#4a4a4a; --shadow:none; color-scheme:dark}}
 :root[data-theme="dark"]{
-  --bg:#0d1513; --surface:#16211e; --surface-2:#1f2c29; --line:#2a3a36;
-  --fg:#e6efec; --muted:#93a5a0;
-  --accent:#4cc3a8; --accent-fg:#06201a; --accent-soft:#16352e;
-  --prot:#6f9cf0; --fat:#e9aa45; --carb:#bb86ec; --kcal:#4cc3a8;
-  --over:#f07a64; --ok:#5cc47a; --shadow:none; color-scheme:dark}
+  --bg:#000000; --surface:#121212; --surface-2:#1e1e1e; --line:#2c2c2c;
+  --fg:#f2f2f2; --muted:#8a8a8a;
+  --accent:#ffffff; --accent-fg:#000000; --accent-soft:#2a2a2a;
+  --prot:#d0d0d0; --fat:#6a6a6a; --carb:#9a9a9a; --kcal:#ffffff;
+  --over:#ff5a4f; --ok:#bdbdbd; --bar:#4a4a4a; --shadow:none; color-scheme:dark}
 *{box-sizing:border-box}
 html,body{height:100%}
 body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45;-webkit-tap-highlight-color:transparent}
@@ -341,7 +341,7 @@ function delDoc(id){
 const clone = o => JSON.parse(JSON.stringify(o||{}));
 
 /* ---------- people: each has own goals, log, plan, weight. Foods and fixed meals are shared. ---------- */
-const PCOLORS=["#1f8a74","#3b74d6","#d2553f","#9a5bd0","#d4951c","#3f9a55"];
+const PCOLORS=["#a0a0a0","#3b74d6","#d2553f","#9a5bd0","#d4951c","#3f9a55"];
 let CUR="p0";                                     /* p0 keeps the original, unprefixed keys */
 const pk = id => CUR==="p0" ? id : CUR+":"+id;
 function people(){ const d=S.docs.people; if(d&&d.list&&d.list.length) return d;
@@ -845,7 +845,7 @@ function viewHist(){
   const bw=(W-pl-pr)/N, y=v=>pt+(H-pt-pb)*(1-v/kmax);
   let cols="", labels="";
   days.forEach((x,i)=>{ const v=x.t?x.t.kcal:0, X=pl+i*bw+3, cx=X+(bw-6)/2;
-    if(v>0) cols+=`<rect x="${X}" y="${y(v)}" width="${bw-6}" height="${y(0)-y(v)}" rx="3" fill="${v>x.g.kcal*1.05?"var(--over)":"var(--kcal)"}"/>`;
+    if(v>0) cols+=`<rect x="${X}" y="${y(v)}" width="${bw-6}" height="${y(0)-y(v)}" rx="3" fill="${v>x.g.kcal*1.05?"var(--over)":"var(--bar)"}"/>`;
     if(x.hit) cols+=`<circle cx="${cx}" cy="${y(v)-7}" r="3.2" fill="var(--prot)"/>`;
     cols+=`<rect x="${pl+i*bw}" y="${pt}" width="${bw}" height="${H-pt}" fill="transparent" data-act="openDay" data-v="${x.k}" style="cursor:pointer"><title>${dateLabel(x.k)}</title></rect>`;
     if(i%2===1||i===N-1){ const d=parseKey(x.k); labels+=`<text x="${cx}" y="${H-6}" text-anchor="middle" font-size="9" fill="var(--muted)">${d.getDate()}.${d.getMonth()+1}</text>`; } });
@@ -861,7 +861,7 @@ function viewHist(){
     wleg=`<span><i style="background:var(--fg);height:2px;vertical-align:3px"></i>Vekt</span>`; }
   let h=`<div class="sect">Siste 14 dager</div><section class="card hist">
     <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Kalorier per dag siste 14 dager, med vekt">${ticks}${goalLine}${cols}${wline}${labels}</svg>
-    <div class="legend"><span><i style="background:var(--kcal)"></i>Kalorier</span><span><i style="background:var(--prot);border-radius:50%"></i>Proteinmål nådd</span>${wleg}<span>- - mål ${r0(base.kcal)}</span></div>
+    <div class="legend"><span><i style="background:var(--bar)"></i>Kalorier</span><span><i style="background:var(--prot);border-radius:50%"></i>Proteinmål nådd</span>${wleg}<span>- - mål ${r0(base.kcal)}</span></div>
     <div class="note" style="margin-top:6px">Trykk på en dag for å åpne den.</div></section>`;
   /* last 7 days vs the 7 before */
   const half=(a,b)=>{ const xs=days.slice(a,b), lg=xs.filter(x=>x.logged), av=k=>lg.length?lg.reduce((s,x)=>s+x.t[k],0)/lg.length:null;
