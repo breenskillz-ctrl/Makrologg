@@ -1,4 +1,4 @@
-<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="17"><title>Makrologg</title>
+<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="18"><title>Makrologg</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
 <style>
@@ -137,6 +137,10 @@ header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background
 .gmhead .chev{flex-shrink:0;width:20px;height:20px}
 .gmcard.open .chev{transform:rotate(180deg)}
 .bkcard{display:flex;flex-direction:column;gap:10px;border:1px dashed var(--line);background:transparent;box-shadow:none}
+.kbal{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}
+.kbal div{background:var(--surface-2);border-radius:12px;padding:10px 4px;display:flex;flex-direction:column}
+.kbal b{font-family:var(--display);font-size:20px}
+.kbal span{font-size:12px;color:var(--muted)}
 .qk-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .meal h3{margin:0;font-family:var(--display);font-weight:600;font-size:17px}
 .meal .mk{font-size:13px;color:var(--muted)}
@@ -547,17 +551,17 @@ const ICON = {
 
 function render(){
   // tabs
-  $("#tabs").innerHTML = [["dag","Dag",ICON.day],["tider","Tider",ICON.clock],["hist","Historikk",ICON.hist],["mal","Kropp",ICON.goal]]
+  $("#tabs").innerHTML = [["dag","Dag",ICON.day],["hist","Historikk",ICON.hist],["mal","Kropp",ICON.goal]]
     .map(([k,l,i])=>`<button data-act="tab" data-v="${k}" class="${UI.tab===k?"on":""}">${i}${l}</button>`).join("");
   $("#datenav").innerHTML = UI.tab==="dag" ? `<button data-act="day" data-v="-1" aria-label="Forrige dag">‹</button><button class="dlabel" data-act="pickDate" aria-label="Velg dato: ${dateLabel(UI.date)}">${dateLabel(UI.date)}</button><button data-act="day" data-v="1" aria-label="Neste dag">›</button>` : "";
-  const gb=$("#gearBtn"); if(gb) gb.classList.toggle("on", UI.tab==="innst");
+  const gb=$("#gearBtn"); if(gb) gb.classList.toggle("on", UI.tab==="innst"||UI.tab==="tider");
   if(!S.ready){ return; }
   const m=$("#main"), pb=personBar();
   if(UI.tab==="innst"){ m.innerHTML = viewSettings(); return; }
   if(UI.tab==="dag") m.innerHTML = pb + updateBanner() + viewDay();
   else if(UI.tab==="hist") m.innerHTML = pb + viewHist();
   else if(UI.tab==="plan"){ UI.tab="innst"; m.innerHTML = viewSettings(); }
-  else if(UI.tab==="tider") m.innerHTML = pb + viewTider();
+  else if(UI.tab==="tider") m.innerHTML = `<button class="link sm" data-act="tab" data-v="innst" style="margin:4px 0 0;padding-left:0;display:block;text-align:left">‹ Innstillinger</button><h2 class="ptitle">Måltidstider</h2>` + viewTider();
   else m.innerHTML = pb + viewGoals();
 }
 
@@ -634,12 +638,14 @@ function viewDay(){
       ${es.length&&open?`<div class="mtools">${last&&!sameAlready?`<button class="link sm" data-act="copyY" data-v="${mk}" data-k="${last.k}">+ Samme som ${last.label} (${r0(last.kcal)} kcal)</button>`:""}${others.length?`<button class="link sm" data-act="copyMeal" data-v="${mk}">Kopier til ${others.length===1?esc(others[0].name):"andre"}</button>`:""}<button class="link sm" data-act="saveAsTpl" data-v="${mk}">Lagre som fast</button></div><ul>${es.map(e=>`<li data-act="editEntry" data-v="${e.id}"><div class="nm"><div>${esc(e.name)}${e.est?'<span class="tag">anslag</span>':""}${e.quick?'<span class="tag">hurtig</span>':""}</div><small class="num">${e.quick?"":r0(e.g)+" g · "}P ${r0(e.p)} · K ${r0(e.c)} · F ${r0(e.f)}</small></div><div class="kc num">${r0(e.kcal)}</div></li>`).join("")}</ul>`:""}
       </section>`;
   }
+  { const oth=people().list.filter(x=>x.id!==CUR); if(oth.length&&(d.entries||[]).length)
+    h += `<div style="text-align:center;margin:-2px 0 4px"><button class="link sm" data-act="copyMeal" data-v="*">Kopier hele dagen til ${oth.length===1?esc(oth[0].name):"andre"}</button></div>`; }
   const ws=waterState(d);
   h += `<section class="card wq"><div class="prow"><b>Drukket vann${UI.date===todayKey()?" i dag":""}?</b>
       <div class="seg" role="group" aria-label="Drukket vann"><button data-act="waterAns" data-v="ja" class="${ws.ans==="ja"?"on":""}">Ja</button><button data-act="waterAns" data-v="nei" class="${ws.ans==="nei"?"on":""}">Nei</button></div></div>
     ${ws.ans==="ja"?`<div class="row"><label for="waterL" class="note">Hvor mye?</label><input class="inp num" id="waterL" inputmode="decimal" value="${ws.l!=null?fmt1(ws.l):""}" placeholder="valgfritt" style="width:96px;padding:8px 10px"><span class="note">liter</span><button class="btn sm" data-act="waterSave">Lagre</button></div>`:""}
   </section>`;
-  h += garminCard(UI.date) + backupCard();
+  h += backupCard();
   return h;
 }
 function garminCard(k){
@@ -760,7 +766,7 @@ function logForOthers(s, makeEntry){
 }
 
 function sheetCopyMeal(s){
-  const others=people().list.filter(x=>x.id!==CUR), es=(dayDoc(UI.date).entries||[]).filter(e=>e.meal===s.mk), kc=es.reduce((a,e)=>a+e.kcal,0);
+  const others=people().list.filter(x=>x.id!==CUR), es=(dayDoc(UI.date).entries||[]).filter(e=>s.mk==="*"||e.meal===s.mk), kc=es.reduce((a,e)=>a+e.kcal,0);
   return `<div class="note">${es.length} ting, ${r0(kc)} kcal. Mengdene kan endres etterpå hos hver person.</div>
    ${others.length>1?`<div class="whos">${others.map(p=>`<div class="who"><label class="tgl"><input type="checkbox" data-cm="${p.id}" ${s.to[p.id]?"checked":""}><span class="dot" style="background:${pcolor(p)}"></span><span>${esc(p.name)}</span></label></div>`).join("")}</div>`:""}
    <div class="field"><span class="flabel">Andel av dine mengder</span><div class="row">${[100,75,50,25].map(x=>`<button class="chip ${s.pct===x?"on":""}" data-act="cmPct" data-v="${x}">${x} %</button>`).join("")}</div></div>
@@ -824,6 +830,12 @@ function sheetTpl(){
    ${t.id&&tplById(t.id)?`<button class="btn danger block" data-act="tplRemove">Slett fast måltid</button>`:""}`;
 }
 
+function maintKcal(){
+  const b=(S.docs[pk("profile")]||{}).body||{}, ws=Object.entries(weightsDoc().items||{}).sort((x,y)=>x[0]<y[0]?-1:1);
+  const w=ws.length?ws[ws.length-1][1]:numIn(b.weight), h=numIn(b.height), age=numIn(b.age), act=numIn(b.act||"1.55");
+  if(!w||!h||!age) return null;
+  return (10*w+6.25*h-5*age+(b.sex==="k"?-161:5))*act;
+}
 function viewHist(){
   const t=todayKey(), N=14, base=goals(), days=[];
   for(let i=N-1;i>=0;i--){ const k=addDays(t,-i), d=S.docs[pk("day-")+k], tt=d?totals(d):null, g=goalsFor(k);
@@ -854,7 +866,10 @@ function viewHist(){
   /* last 7 days vs the 7 before */
   const half=(a,b)=>{ const xs=days.slice(a,b), lg=xs.filter(x=>x.logged), av=k=>lg.length?lg.reduce((s,x)=>s+x.t[k],0)/lg.length:null;
     const wk=wAll.filter(([k])=>k>=xs[0].k&&k<=xs[xs.length-1].k); return {n:lg.length,kcal:av("kcal"),p:av("p"),c:av("c"),f:av("f"),hit:xs.filter(x=>x.hit).length,w:wk.length?wk[wk.length-1][1]:null}; };
-  const now=half(7,14), prev=half(0,7);
+  const now=half(7,14), prev=half(0,7), mt=maintKcal();
+  const bal=(a,b)=>{ const lg=days.slice(a,b).filter(x=>x.logged); return mt&&lg.length?lg.reduce((s,x)=>s+x.t.kcal-mt,0):null; };
+  now.bal=bal(7,14); prev.bal=bal(0,7);
+  const kgOf=v=>v==null?null:v/7700;
   const row=(label,a,b,unit,goodUp,dec)=>{ const f=v=>v==null?"–":(dec?fmt1(v):r0(v))+unit; let cls="same", arrow="";
     if(a!=null&&b!=null&&Math.abs(a-b)>=(dec?0.05:1)){ const up=a>b; arrow=up?"▲":"▼"; cls=goodUp==null?"same":(up===goodUp?"up":"down"); }
     return `<tr><td>${label}</td><td class="num">${f(a)} <span class="${cls}">${arrow}</span></td><td class="num">${f(b)}</td></tr>`; };
@@ -863,10 +878,12 @@ function viewHist(){
     ${row("Snitt kcal",now.kcal,prev.kcal,"",null)}${row("Snitt protein",now.p,prev.p," g",true)}${row("Snitt karbo",now.c,prev.c," g",null)}${row("Snitt fett",now.f,prev.f," g",null)}
     ${row("Dager med proteinmål",now.hit,prev.hit,"",true)}${row("Loggførte dager",now.n,prev.n,"",true)}${row("Vekt",now.w,prev.w," kg",null,true)}
   </table><div class="note" style="margin-top:8px">Snittene gjelder dager du har loggført mat.</div></section>`;
-  const prods=Object.values(foodsDoc().items||{}).sort((a,b)=>a.name.localeCompare(b.name,"nb"));
-  h+=`<div class="sect">Mine matvarer (${prods.length})</div>`;
-  h+= prods.length? `<div class="list">${prods.map(p=>`<button data-act="editProduct" data-v="${p.id}"><span class="nm">${esc(p.name)}${p.barcode?`<br><small class="num">${esc(p.barcode)}</small>`:""}</span><small class="num">${r0(p.per.kcal)} kcal/100 g</small></button>`).join("")}</div>`
-    : `<section class="card note">Varer du skanner eller legger inn selv havner her, så du finner dem raskt neste gang.</section>`;
+  if(mt){ const wkNow=wAll.filter(([k])=>k>=addDays(t,-7)&&k<=t), wd=wkNow.length>=2?wkNow[wkNow.length-1][1]-wkNow[0][1]:null;
+    const sg=v=>(v>0?"+":v<0?"−":"")+Math.abs(v).toLocaleString("nb-NO",{maximumFractionDigits:0});
+    h+=`<div class="sect">Kaloribalanse</div><section class="card" style="display:flex;flex-direction:column;gap:8px">
+    ${now.bal!=null?`<div class="kbal"><div><b class="num" style="color:${now.bal<0?"var(--ok)":"var(--over)"}">${sg(r0(now.bal))}</b><span>kcal siste 7 dager</span></div><div><b class="num">${kgOf(now.bal)>0?"+":"−"}${fmt1(Math.abs(kgOf(now.bal)))}</b><span>kg ventet</span></div><div><b class="num">${wd==null?"–":(wd>0?"+":wd<0?"−":"")+fmt1(Math.abs(wd))}</b><span>kg på vekta</span></div></div>`:`<div class="note">Logg mat noen dager, så kommer balansen her.</div>`}
+    ${prev.bal!=null?`<div class="note num">Uka før: ${sg(r0(prev.bal))} kcal (≈ ${kgOf(prev.bal)>0?"+":"−"}${fmt1(Math.abs(kgOf(prev.bal)))} kg)</div>`:""}
+    <div class="note">Regnet mot et forbruk på ca. ${r0(mt)} kcal per dag (fra «Regn ut mål» og siste vekt), bare for dager med logget mat. 7 700 kcal ≈ 1 kg. Vekta svinger med vann, så se på flere uker.</div></section>`; }
   return h;
 }
 
@@ -953,6 +970,9 @@ function viewGoals(){
 `;
 }
 
+function myFoodsList(q){ q=(q||"").trim().toLowerCase();
+  const prods=Object.values(foodsDoc().items||{}).filter(p=>!q||p.name.toLowerCase().includes(q)||(p.barcode||"").includes(q)).sort((a,b)=>a.name.localeCompare(b.name,"nb"));
+  return prods.length?`<div class="list">${prods.map(p=>`<button data-act="editProduct" data-v="${p.id}"><span class="nm">${esc(p.name)}${p.barcode?`<br><small class="num">${esc(p.barcode)}</small>`:""}</span><small class="num">${r0(p.per.kcal)} kcal/100 g</small></button>`).join("")}</div>`:`<div class="note">Ingen treff.</div>`; }
 function viewSettings(){
   const pl=people().list;
   return `<h2 class="ptitle">Innstillinger</h2>
@@ -961,6 +981,10 @@ function viewSettings(){
     <button class="btn ghost block" data-act="newPerson">+ Legg til person</button>
     <div class="note">Hver person har egne mål, egen logg, plan og vekt. Matvarer og faste måltider er felles. Når du logger mat, kan du også logge den for de andre.</div></section>
 ${viewPlan()}
+    <div class="sect">Måltidstider og varsler</div><div class="list"><button data-act="tab" data-v="tider"><span class="nm">Når skal jeg spise?<br><small>Kalkulator, faste tider og påminnelser${plan().reminders?" (varsler på)":""}</small></span><span aria-hidden="true">›</span></button></div>
+    <div class="sect">Mine matvarer (${Object.keys(foodsDoc().items||{}).length})</div>
+    ${Object.keys(foodsDoc().items||{}).length?`<input class="inp" id="foodQ" placeholder="Søk i mine matvarer" autocomplete="off" style="margin-bottom:8px"><div id="myFoods">${myFoodsList("")}</div>`
+      :`<section class="card note">Varer du skanner eller legger inn selv havner her, så du finner dem raskt neste gang.</section>`}
     <div class="sect" id="kassal">Norske butikkvarer (Kassalapp)</div><section class="card" style="display:flex;flex-direction:column;gap:10px">
     ${kasStatusLine()}
     ${kassalKey()&&UI.kasStatus!=="bad"?"":`<div class="note">Med en gratis nøkkel fra Kassalapp finner appen næringsinnholdet til varene i norske butikker, både når du skanner og når du søker.</div>
@@ -969,7 +993,7 @@ ${viewPlan()}
     <div class="field"><label for="kKey">API-nøkkel</label><input class="inp" id="kKey" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(kassalKey())}" placeholder="Lim inn nøkkelen"></div>
     <button class="btn primary block" data-act="saveKey" ${UI.kasStatus==="testing"?"disabled":""}>Lagre og test</button></section>
     <div class="sect">Coach (Google Sheets)</div><section class="card" style="display:flex;flex-direction:column;gap:10px">
-    <div class="note">Sender mat, vekt og Garmin-tall for alle personer til regnearket ditt, så Claude kan følge med. Lim inn nettapp-adressen fra Apps Script (slutter på /exec).</div>
+    <div class="note">Sender mat og vekt for alle personer til regnearket ditt, så Claude kan følge med. Lim inn nettapp-adressen fra Apps Script (slutter på /exec).</div>
     <div class="field"><label for="sheetUrl">Nettapp-adresse</label><input class="inp" id="sheetUrl" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(sheetUrl())}" placeholder="https://script.google.com/macros/s/…/exec"></div>
     <button class="btn primary block" data-act="saveSheet">Lagre og send</button>
     <div class="note num" id="syncStatus">${esc(syncStatusText())}</div>
@@ -1003,7 +1027,7 @@ function renderSheet(){
   else if(s.type==="quick"){ title=s.entryId?"Endre hurtiglogg":"Hurtiglogg"; body=sheetQuick(s); }
   else if(s.type==="slot"){ title=meal(s.slot)+(s.at?" kl "+hhmm(s.at):""); body=sheetSlot(s); }
   else if(s.type==="tpl"){ title=UI.tplDraft.id&&tplById(UI.tplDraft.id)?"Endre fast måltid":"Nytt fast måltid"; body=sheetTpl(); }
-  else if(s.type==="copyMeal"){ title=meal(s.mk)+": kopier"; body=sheetCopyMeal(s); }
+  else if(s.type==="copyMeal"){ title=s.mk==="*"?"Kopier hele dagen":meal(s.mk)+": kopier"; body=sheetCopyMeal(s); }
   else if(s.type==="weight"){ title="Endre vekt"; body=sheetWeight(s); }
   else if(s.type==="amount"){ title=s.entryId?"Endre":"Mengde"; body=sheetAmount(s); }
   else if(s.type==="product"){ title=s.id?"Endre matvare":"Ny matvare"; body=sheetProduct(s); }
@@ -1634,10 +1658,10 @@ Svar KUN med JSON: {"items":[{"name":"kort norsk navn","grams":tall,"kcal":tall,
   else if(a==="backupLater"){ const st=clone(S.docs.settings||{kind:"settings"}); st.kind="settings"; st.backupSnooze=Date.now()+7*864e5; writeDoc("settings",st); }
   else if(a==="copyMeal"){ const others=people().list.filter(x=>x.id!==CUR); const to={}; if(others[0]) to[others[0].id]=true; openSheet({type:"copyMeal",mk:v,pct:100,to}); }
   else if(a==="cmPct"){ UI.sheet.pct=Number(v); renderSheet(); }
-  else if(a==="copyMealDo"){ const s=UI.sheet, f=(Number(s.pct)||100)/100, es=(dayDoc(UI.date).entries||[]).filter(e=>e.meal===s.mk), ids=Object.keys(s.to).filter(k=>s.to[k]);
+  else if(a==="copyMealDo"){ const s=UI.sheet, f=(Number(s.pct)||100)/100, es=(dayDoc(UI.date).entries||[]).filter(e=>s.mk==="*"||e.meal===s.mk), ids=Object.keys(s.to).filter(k=>s.to[k]);
     if(!ids.length){ toast("Velg minst én person"); return; }
     for(const pid of ids) for(const e of es) addToDay(pid, UI.date, Object.assign(clone(e),{id:uid(),g:(e.g||0)*f,kcal:e.kcal*f,p:e.p*f,c:e.c*f,f:e.f*f}));
-    closeSheet(); toast(`${meal(s.mk)} kopiert til ${ids.map(x=>personOf(x).name).join(", ")}${f!==1?` (${r0(f*100)} %)`:""}`); }
+    closeSheet(); toast(`${s.mk==="*"?"Dagen":meal(s.mk)} kopiert til ${ids.map(x=>personOf(x).name).join(", ")}${f!==1?` (${r0(f*100)} %)`:""}`); }
   else if(a==="cnt"){ const s=UI.sheet, u=amtUnits(s.food)[s.unitIdx||0]; if(!u) return; let c=numIn($("#amtG").value)/u.g;
     c = Number(v)>0 ? (c<1 ? Math.floor(c*2+1e-9)/2+0.5 : Math.floor(c+1e-9)+1) : (c<=1 ? Math.max(0.5,Math.ceil(c*2-1e-9)/2-0.5) : Math.ceil(c-1e-9)-1);
     const g=r1(c*u.g); s.g=g; $("#amtG").value=g; updateAmountPreview(); }
@@ -1647,6 +1671,7 @@ Svar KUN med JSON: {"items":[{"name":"kort norsk navn","grams":tall,"kcal":tall,
 document.addEventListener("input", ev=>{
   const id=ev.target.id;
   if(id==="q" && UI.sheet){ UI.sheet.q=ev.target.value; renderSheet(); queueOnline(UI.sheet); }
+  else if(id==="foodQ"){ const el=$("#myFoods"); if(el) el.innerHTML=myFoodsList(ev.target.value); }
   else if(id==="amtG"){ UI.sheet.g=ev.target.value; updateAmountPreview(); }
   else if(id==="amtMeal"){ UI.sheet.meal=ev.target.value; }
   else if(["gk","gp","gc","gf"].includes(id)) updateGoalSum();
