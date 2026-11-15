@@ -8,6 +8,7 @@ on:
       - 'README.md'
       - '.github/workflows/cleanup.yml'
       - '.github/workflows/matvaretabellen.yml'
+      - '.github/workflows/pages.yml'
       - 'data/**'
   workflow_dispatch:
 
