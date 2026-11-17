@@ -1,4 +1,4 @@
-<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="28"><title>Makrologg</title><meta name="theme-color" content="#000000"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><meta name="apple-mobile-web-app-title" content="Makrologg"><link rel="apple-touch-icon" href="apple-touch-icon.png"><link rel="manifest" href="manifest.webmanifest">
+<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="29"><title>Makrologg</title><meta name="theme-color" content="#000000"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><meta name="apple-mobile-web-app-title" content="Makrologg"><link rel="apple-touch-icon" href="apple-touch-icon.png"><link rel="manifest" href="manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
 <style>
@@ -334,6 +334,10 @@ html.lock,html.lock body{overflow:hidden}
 #liveScan .lsbtns{position:absolute;left:16px;right:16px;bottom:calc(24px + env(safe-area-inset-bottom,0px));display:flex;gap:10px}
 #liveScan .lsbtns .btn{flex:1}
 #liveScan .lsbtns .ghost{background:rgba(0,0,0,.5);color:#fff;border-color:#fff}
+.prow3{display:flex;flex-direction:column;gap:8px;padding:12px 14px;margin:0}
+.prow3 .prow{display:flex;justify-content:space-between;align-items:center}
+.stepper.sm button{width:36px;height:36px;font-size:18px}
+.stepper.sm .cv{min-width:36px;font-size:18px}
 </style>
 
 </head><body><div class="app" id="app">
@@ -967,7 +971,7 @@ function sheetTpl(){
    with values per 100 g of the finished dish, so each person just weighs their own portion. */
 function dishTotals(t){ const v={kcal:0,p:0,f:0,c:0,g:0}; t.items.forEach(i=>{ const x=calc(i.per,i.g); v.kcal+=x.kcal; v.p+=x.p; v.f+=x.f; v.c+=x.c; v.g+=i.g; }); return v; }
 function dishServ(t){ const n=numIn(t.servings); return n>0?n:4; }
-function dishSync(){ const t=UI.tplDraft; if(!t||!t.dish) return; if($("#tplName")) t.name=$("#tplName").value; if($("#dishServ")) t.servings=$("#dishServ").value; if($("#dishCooked")) t.cooked=$("#dishCooked").value; }
+function dishSync(){ const t=UI.tplDraft; if(!t||!t.dish) return; if($("#prepSave")) t.save=$("#prepSave").checked; if($("#tplName")) t.name=$("#tplName").value; if($("#dishServ")) t.servings=$("#dishServ").value; if($("#dishCooked")) t.cooked=$("#dishCooked").value; }
 function dishPortionHtml(t){ const tot=dishTotals(t), n=dishServ(t), cooked=numIn(t.cooked)||tot.g;
   return `<div class="sect" style="margin-top:4px">Per porsjon (1 av ${fmt1(n)})</div>${macroPreview({kcal:tot.kcal/n,p:tot.p/n,f:tot.f/n,c:tot.c/n})}
     ${numIn(t.cooked)>0?`<div class="note num">1 porsjon ≈ ${r0(cooked/n)} g ferdig rett.</div>`:""}`; }
@@ -986,8 +990,10 @@ function sheetDish(){
    <details ${numIn(t.cooked)>0?"open":""}><summary class="note" style="cursor:pointer">Vil du heller veie porsjonene? Legg inn vekta på ferdig rett</summary>
      <div class="field" style="margin-top:8px"><label for="dishCooked">Vekt på ferdig rett (gram)</label><input class="inp num" id="dishCooked" inputmode="decimal" value="${esc(t.cooked??"")}" placeholder="${t.items.length?r0(tot.g)+" (summen av ingrediensene)":"gram"}"></div>
      <div class="note">Vei gryta med maten og trekk fra vekta på den tomme gryta. Da kan du også logge i gram.</div></details>
-   <button class="btn primary block" data-act="dishSave">Lagre rett</button>
-   ${t.id&&foodsDoc().items&&foodsDoc().items[t.id]?`<button class="btn danger block" data-act="dishRemove">Slett retten</button>`:""}`;
+   ${t.prep?`<label class="tgl"><input type="checkbox" id="prepSave" ${t.save?"checked":""}><span>Lagre oppskriften til senere</span></label>
+     <button class="btn primary block" data-act="prepNext">Fordel porsjonene</button>`
+    :`<button class="btn primary block" data-act="dishSave">Lagre rett</button>`}
+   ${t.id&&foodsDoc().items&&foodsDoc().items[t.id]?`<button class="btn danger block" data-act="dishRemove">Slett ${t.prep?"oppskriften":"retten"}</button>`:""}`;
 }
 
 /* ---------- Ukemeny og handleliste (innhold 22): én felles meny for alle personene. Hver rett får en porsjon per
@@ -1021,18 +1027,37 @@ function saveMenu(fn){ const m=clone(menuDoc()); m.kind="menu"; m.days=m.days||{
 /* planned and not yet logged for the active person on day k */
 function plannedFor(k){ return (menuDay(k).items||[]).filter(it=>it.by&&it.by[CUR]>0&&!(it.logged&&it.logged[CUR])&&menuSrc(it.ref)); }
 
+const prepDoc = () => S.docs.prep || {kind:"prep",items:{}};
+function prepBatches(){ return Object.values(prepDoc().items||{}).filter(b=>b.left>0.01).sort((a,b)=>(b.made||0)-(a.made||0)); }
 function mealprepCard(){
-  const ds=Object.values(foodsDoc().items||{}).filter(f=>f.dish&&f.per).sort((a,b)=>(b.dish.made||0)-(a.dish.made||0)), shown=UI.allPrep?ds:ds.slice(0,4);
-  const sub=f=>{ const n=f.dish.servings, pg=f.portion&&f.portion.g; if(n&&pg){ const v=calc(f.per,pg); return `${fmt1(n)} porsjoner · ${r0(v.kcal)} kcal · P ${r0(v.p)} · K ${r0(v.c)} · F ${r0(v.f)} per porsjon`; }
-    return `${r0(f.per.kcal)} kcal · P ${r0(f.per.p)} per 100 g`; };
+  const bs=prepBatches(), ds=Object.values(foodsDoc().items||{}).filter(f=>f.dish&&f.per).sort((a,b)=>(b.dish.made||0)-(a.dish.made||0));
+  const pk1=b=>calc(b.per,b.pg);
   return `<h2 class="ptitle">Mealprep</h2>
    <section class="card" style="display:flex;flex-direction:column;gap:10px">
-    <div class="note">Legg inn ingrediensene, velg hvor mange porsjoner det blir, og se kalorier og makroer totalt og per porsjon.</div>
+    ${bs.length?`<div class="list">${bs.map(b=>`<button data-act="prepOpen" data-v="${b.id}"><span class="nm">${esc(b.name)}<br><small class="num">${fmt1(b.left)} av ${fmt1(b.servings)} porsjoner igjen · ${r0(pk1(b).kcal)} kcal · P ${r0(pk1(b).p)} per porsjon</small></span><span class="note">Fordel ›</span></button>`).join("")}</div>`
+      :`<div class="note">Legg inn ingrediensene, velg hvor mange porsjoner det blir, og fordel porsjonene på dager og personer.</div>`}
     <button class="btn primary block" data-act="newPrep">+ Ny mealprep</button>
-    ${ds.length?`<div class="list">${shown.map(f=>`<button data-act="editPrep" data-v="${esc(f.id)}"><span class="nm">${esc(f.name)}<br><small class="num">${sub(f)}</small></span><span aria-hidden="true">›</span></button>`).join("")}</div>
-      ${ds.length>4?`<button class="link sm" data-act="allPrep">${UI.allPrep?"Vis færre":`Vis alle (${ds.length})`}</button>`:""}`:""}
+    ${ds.length?`<button class="link sm" data-act="allPrep">${UI.allPrep?"Skjul lagrede oppskrifter":`Lagrede oppskrifter (${ds.length})`}</button>
+      ${UI.allPrep?`<div class="list">${ds.map(f=>`<button data-act="editPrep" data-v="${esc(f.id)}"><span class="nm">${esc(f.name)}<br><small class="num">${f.dish.servings?`${fmt1(f.dish.servings)} porsjoner · ${r0(calc(f.per,f.portion.g).kcal)} kcal per porsjon`:`${r0(f.per.kcal)} kcal per 100 g`}</small></span><span aria-hidden="true">›</span></button>`).join("")}</div>`:""}`:""}
    </section>`;
 }
+function prepDayOpts(sel){ const t=todayKey(); let o=""; for(let i=-1;i<14;i++){ const k=addDays(t,i); o+=`<option value="${k}" ${k===sel?"selected":""}>${i===0?"I dag":i===1?"I morgen":i===-1?"I går":dateLabel(k)}</option>`; } return o; }
+function prepUsed(s){ return s.rows.reduce((a,r)=>a+Object.values(r.by).reduce((x,y)=>x+(Number(y)||0),0),0); }
+function sheetPrepDist(s){
+  const b=s.batch, ppl=people().list, v1=calc(b.per,b.pg), used=prepUsed(s), left=b.left-used;
+  return `<div><div style="font-weight:700;font-size:17px">${esc(b.name)}</div><div class="note num">${fmt1(b.left)} porsjoner å fordele · 1 porsjon = ${r0(v1.kcal)} kcal · P ${r0(v1.p)} · K ${r0(v1.c)} · F ${r0(v1.f)}</div></div>
+   ${s.rows.map((r,i)=>`<section class="card prow3">
+     <div class="row" style="flex-wrap:nowrap"><select class="inp" data-pr="date" data-i="${i}" style="flex:1.3;min-width:0">${prepDayOpts(r.date)}</select><select class="inp" data-pr="meal" data-i="${i}" style="flex:1;min-width:0">${MEALS.map(([k,l])=>`<option value="${k}" ${r.meal===k?"selected":""}>${l}</option>`).join("")}</select>
+       ${s.rows.length>1?`<button class="x" data-act="prepRowDel" data-v="${i}" aria-label="Fjern">×</button>`:""}</div>
+     ${ppl.map(p=>`<div class="prow"><span><span class="dot" style="background:${pcolor(p)}"></span> ${esc(p.name)}</span><div class="stepper sm"><button data-act="prepCnt" data-v="${i}" data-k="${p.id}:-1" aria-label="Færre">−</button><span class="cv num">${fmt1(Number(r.by[p.id])||0)}</span><button data-act="prepCnt" data-v="${i}" data-k="${p.id}:1" aria-label="Flere">+</button></div></div>`).join("")}
+   </section>`).join("")}
+   <button class="btn ghost block" data-act="prepRowAdd">+ Legg til dag</button>
+   <div class="kline num" style="color:${left< -0.01?"var(--over)":"var(--fg)"}"><span>Fordelt <b>${fmt1(used)}</b> av ${fmt1(b.left)}</span><span>${left< -0.01?`<b>${fmt1(-left)}</b> for mye`:`<b>${fmt1(left)}</b> igjen`}</span></div>
+   <button class="btn primary block" data-act="prepDo" ${used<=0||left< -0.01?"disabled":""}>Logg porsjonene</button>
+   ${left>0.01&&used>0?`<div class="note" style="text-align:center">Resten ligger under Mealprep i Meny, så du kan fordele den senere.</div>`:""}
+   ${s.stored?`<button class="btn danger block" data-act="prepDiscard">Forkast resten</button>`:""}`;
+}
+
 function viewMenu(){
   const mon=UI.menuWeek||mondayOf(todayKey()), today=todayKey();
   if(UI.menuView==="shop") return viewShop(mon);
@@ -1462,6 +1487,7 @@ function renderSheet(){
   else if(s.type==="tpl"){ title=UI.tplDraft.dish?(UI.tplDraft.prep?(UI.tplDraft.id?"Endre mealprep":"Ny mealprep"):UI.tplDraft.id?"Endre rett":"Ny rett"):UI.tplDraft.id&&tplById(UI.tplDraft.id)?"Endre fast måltid":"Nytt fast måltid"; body=UI.tplDraft.dish?sheetDish():sheetTpl(); }
   else if(s.type==="copyMeal"){ title=s.mk==="*"?"Kopier hele dagen":meal(s.mk)+": kopier"; body=sheetCopyMeal(s); }
   else if(s.type==="weight"){ title="Endre vekt"; body=sheetWeight(s); }
+  else if(s.type==="prepDist"){ title="Fordel porsjoner"; body=sheetPrepDist(s); }
   else if(s.type==="measure"){ title="Endre kroppsmål"; body=sheetMeasure(s); }
   else if(s.type==="amount"){ title=s.entryId?"Endre":"Mengde"; body=sheetAmount(s); }
   else if(s.type==="product"){ title=s.id?"Endre matvare":"Ny matvare"; body=sheetProduct(s); }
@@ -2108,8 +2134,35 @@ document.addEventListener("click", async ev=>{
   else if(a==="tplAdd"){ UI.tplDraft.name=$("#tplName").value; dishSync(); UI.addTarget="tpl"; openSheet({type:"pick",meal:"tpl",q:""}); }
   else if(a==="tplItem"){ const i=UI.tplDraft.items[Number(v)]; UI.tplDraft.name=$("#tplName").value; dishSync(); UI.addTarget="tpl";
     openAmount({id:i.foodId,name:i.name,per:i.per,portion:i.portion,base:!i.foodId},"tpl",{g:i.g,tplIndex:Number(v)}); }
-  else if(a==="newPrep"){ UI.tplDraft={id:"",name:"",items:[],dish:true,cooked:"",servings:"",prep:true,meal:guessMeal()}; openSheet({type:"tpl"}); }
-  else if(a==="editPrep"){ const f=(foodsDoc().items||{})[v]; if(f&&f.dish){ UI.tplDraft={id:f.id,name:f.name,items:clone(f.dish.items),dish:true,cooked:(f.dish.weighed||f.dish.servings==null)?(f.dish.cooked||""):"",servings:f.dish.servings||"",prep:true,meal:guessMeal()}; openSheet({type:"tpl"}); } }
+  else if(a==="newPrep"){ UI.tplDraft={id:"",name:"",items:[],dish:true,cooked:"",servings:"",prep:true,save:false,meal:guessMeal()}; openSheet({type:"tpl"}); }
+  else if(a==="prepNext"){ const t=UI.tplDraft; dishSync(); t.name=(t.name||"").trim();
+    if(!t.name){ toast("Gi retten et navn"); return; } if(!t.items.length){ toast("Legg til minst én ingrediens"); return; }
+    const tot=dishTotals(t), n=dishServ(t), cooked=numIn(t.cooked)||tot.g; if(cooked<=0){ toast("Legg inn mengdene"); return; }
+    const per={kcal:r1(tot.kcal*100/cooked),p:r1(tot.p*100/cooked),f:r1(tot.f*100/cooked),c:r1(tot.c*100/cooked)}, pg=r1(cooked/n);
+    let foodId=null;
+    if(t.save){ const fd=clone(foodsDoc()); fd.kind="foods"; fd.items=fd.items||{}; foodId=t.id||"d"+uid();
+      fd.items[foodId]={id:foodId,name:t.name,per,portion:{label:"1 porsjon",g:pg},portions:[{label:"1 porsjon",g:pg},{label:"Hele retten",g:r0(cooked)}],barcode:null,source:"rett",
+        dish:{items:t.items,cooked:r0(cooked),weighed:numIn(t.cooked)>0,servings:n,made:Date.now()},updated:Date.now()}; writeDoc("foods",fd); }
+    const batch={id:"b"+uid(),name:t.name,per,pg,servings:n,left:n,foodId,made:Date.now()};
+    UI.tplDraft=null; UI.addTarget=null;
+    const by={}; people().list.forEach(p=>by[p.id]=p.id===CUR||people().list.length===1?1:1);
+    openSheet({type:"prepDist",batch,stored:false,rows:[{date:todayKey(),meal:"middag",by}]}); }
+  else if(a==="prepOpen"){ const b=(prepDoc().items||{})[v]; if(!b) return; const by={}; people().list.forEach(p=>by[p.id]=0); by[CUR]=1;
+    openSheet({type:"prepDist",batch:clone(b),stored:true,rows:[{date:todayKey(),meal:"middag",by}]}); }
+  else if(a==="prepCnt"){ const s=UI.sheet, r=s.rows[Number(v)], [pid,d]=t.dataset.k.split(":"), cur=Number(r.by[pid])||0;
+    r.by[pid]=Math.max(0, Number(d)>0 ? cur+(cur<1?0.5:1) : cur-(cur<=1?0.5:1)); renderSheet(); }
+  else if(a==="prepRowAdd"){ const s=UI.sheet, last=s.rows[s.rows.length-1]; s.rows.push({date:addDays(last.date,1),meal:last.meal,by:clone(last.by)}); renderSheet(); }
+  else if(a==="prepRowDel"){ UI.sheet.rows.splice(Number(v),1); renderSheet(); }
+  else if(a==="prepDo"){ const s=UI.sheet, b=s.batch, used=prepUsed(s); if(used<=0||used>b.left+0.01) return;
+    const days=new Set();
+    for(const r of s.rows) for(const [pid,n0] of Object.entries(r.by)){ const n=Number(n0)||0; if(n<=0) continue; const g=n*b.pg, x=calc(b.per,g);
+      addToDay(pid, r.date, {id:uid(),meal:r.meal,name:b.name,g,per:b.per,portion:{label:"1 porsjon",g:b.pg},foodId:b.foodId||null,kcal:x.kcal,p:x.p,f:x.f,c:x.c}); days.add(r.date); }
+    const pd=clone(prepDoc()); pd.kind="prep"; pd.items=pd.items||{}; b.left=r1(b.left-used);
+    if(b.left>0.01) pd.items[b.id]=b; else delete pd.items[b.id];
+    closeSheet(); writeDoc("prep",pd);
+    toast(`${fmt1(used)} ${used===1?"porsjon":"porsjoner"} logget${b.left>0.01?`, ${fmt1(b.left)} igjen`:""}`); }
+  else if(a==="prepDiscard"){ const s=UI.sheet, pd=clone(prepDoc()); pd.kind="prep"; pd.items=pd.items||{}; delete pd.items[s.batch.id]; closeSheet(); writeDoc("prep",pd); toast("Resten er forkastet"); }
+  else if(a==="editPrep"){ const f=(foodsDoc().items||{})[v]; if(f&&f.dish){ UI.tplDraft={id:f.id,name:f.name,items:clone(f.dish.items),dish:true,cooked:(f.dish.weighed||f.dish.servings==null)?(f.dish.cooked||""):"",servings:f.dish.servings||"",prep:true,save:true,meal:guessMeal()}; openSheet({type:"tpl"}); } }
   else if(a==="allPrep"){ UI.allPrep=!UI.allPrep; render(); }
   else if(a==="dishServ"){ dishSync(); const t=UI.tplDraft, n=dishServ(t); t.servings=String(Number(v)>0?Math.floor(n+1e-9)+1:Math.max(1,Math.ceil(n-1e-9)-1)); $("#dishServ").value=t.servings; updateDishPer(); }
   else if(a==="tplDel"){ UI.tplDraft.name=$("#tplName").value; dishSync(); UI.tplDraft.items.splice(Number(v),1); renderSheet(); }
@@ -2249,6 +2302,7 @@ document.addEventListener("change", ev=>{
   if(ev.target.id==="amtMeal" && UI.sheet) UI.sheet.meal=ev.target.value;
   if(ev.target.id==="datePick" && ev.target.value){ UI.date=ev.target.value; ev.target.style.pointerEvents="none"; render(); }
   if(ev.target.matches("[data-pl]")) savePlanForm();
+  if(ev.target.dataset&&ev.target.dataset.pr&&UI.sheet&&UI.sheet.rows){ UI.sheet.rows[Number(ev.target.dataset.i)][ev.target.dataset.pr]=ev.target.value; return; }
   if(ev.target.id==="dayNote"){ const d=clone(dayDoc(UI.date)); d.kind="day"; d.date=UI.date; const tx=ev.target.value.trim(); if(tx) d.note=tx; else delete d.note; UI.noteOpen=false; writeDoc(pk("day-")+UI.date,d); toast(tx?"Notat lagret":"Notat fjernet"); }
   if(ev.target.dataset&&(ev.target.dataset.mlabel||ev.target.dataset.mshow)){ const list=MEALS.map(([k,l])=>({k,label:l,hidden:MEALS_HIDDEN.has(k)}));
     const m=list.find(x=>x.k===(ev.target.dataset.mlabel||ev.target.dataset.mshow)); if(!m) return;
