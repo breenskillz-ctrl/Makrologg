@@ -1,4 +1,4 @@
-<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="29"><title>Makrologg</title><meta name="theme-color" content="#000000"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><meta name="apple-mobile-web-app-title" content="Makrologg"><link rel="apple-touch-icon" href="apple-touch-icon.png"><link rel="manifest" href="manifest.webmanifest">
+<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="30"><title>Makrologg</title><meta name="theme-color" content="#000000"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><meta name="apple-mobile-web-app-title" content="Makrologg"><link rel="apple-touch-icon" href="apple-touch-icon.png"><link rel="manifest" href="manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
 <style>
@@ -431,7 +431,8 @@ function lsLoad(){ try{ return JSON.parse(localStorage.getItem(LSKEY)||"{}"); }c
 function lsSave(){ try{ localStorage.setItem(LSKEY, JSON.stringify(S.docs)); }catch(e){} }
 const queues = {};
 function writeDoc(id, data){
-  S.docs[id] = data; renderSoon(); reschedule(); syncSoon();
+  hhBeforeWrite(id, data);
+  S.docs[id] = data; renderSoon(); reschedule(); syncSoon(); hhMark(id);
   if(S.mode!=="db"){ lsSave(); return; }
   const ref = S.db.doc("data/users/"+S.uidv+"/"+id);
   queues[id] = (queues[id]||Promise.resolve()).then(()=>ref.set(data)).catch(e=>{
@@ -440,7 +441,7 @@ function writeDoc(id, data){
   });
 }
 function delDoc(id){
-  delete S.docs[id]; renderSoon(); syncSoon();
+  delete S.docs[id]; renderSoon(); syncSoon(); hhMark(id);
   if(S.mode!=="db"){ lsSave(); return; }
   const ref=S.db.doc("data/users/"+S.uidv+"/"+id);
   queues[id]=(queues[id]||Promise.resolve()).then(()=>ref.delete()).catch(()=>{});
@@ -558,10 +559,154 @@ window.onReminderOpen = (slot, day) => { if(String(slot).includes("|")){ const [
   UI.tab="dag"; if(day) UI.date=day; render(); openSlot(slot, day||UI.date); };
 function openSlot(slot,k){ const sl=daySchedule(k).find(x=>x.meal===slot); openSheet({type:"slot",slot,day:k,at:sl?sl.at:null,tpl:sl?sl.tpl:""}); }
 
-function initStore(){ loadMvt(); S.docs=lsLoad(); syncActive(); S.ready=true; UI.date=todayKey(); UI.lastToday=UI.date; render(); reschedule(); syncSoon(3000); }
+function initStore(){ loadMvt(); S.docs=lsLoad(); syncActive(); S.ready=true; UI.date=todayKey(); UI.lastToday=UI.date; render(); reschedule(); syncSoon(3000); hhSoon(300); }
 document.addEventListener("visibilitychange",()=>{ if(!S.ready) return;
   if(document.hidden){ if(sheetUrl()&&syncPending().length){ queueNightSync(); clearTimeout(SY.t); runSync(); } return; }
-  const t=todayKey(); if(UI.lastToday!==t){ if(UI.date===UI.lastToday) UI.date=t; UI.lastToday=t; } render(); reschedule(); syncSoon(3000); });
+  const t=todayKey(); if(UI.lastToday!==t){ if(UI.date===UI.lastToday) UI.date=t; UI.lastToday=t; } render(); reschedule(); syncSoon(3000); hhSoon(200); });
+
+/* ---------- Husstand-synk: to eller flere telefoner deler alle data via Supabase (tabell ml_sync_docs).
+   Koden (URL, publishable key, husstand-id og hemmelighet) ligger bare i localStorage på telefonene. ---------- */
+const HH_LS="makrologg.hh";
+const HH={busy:false,t:null,again:false,err:null,stamp:0,dirtyRender:false};
+const hhLocalOnly = k => k==="settings" || k.startsWith("_");
+const isDayKey = k => /(^|:)day-\d{4}-\d{2}-\d{2}$/.test(k);
+function hhState(){ if(HH.st!==undefined) return HH.st; HH.st=null;
+  try{ const st=JSON.parse(localStorage.getItem(HH_LS)||"null"); if(st&&st.h){ st.seqs=st.seqs||{}; st.pend=st.pend||{}; HH.st=st; } }catch(e){} return HH.st; }
+function hhSave(st){ HH.st=st||null; try{ if(st) localStorage.setItem(HH_LS,JSON.stringify(st)); else localStorage.removeItem(HH_LS); }catch(e){} }
+function hhBeforeWrite(id,data){
+  if(!data||typeof data!=="object") return; data._ms=Date.now();
+  if(isDayKey(id)){ const prev=S.docs[id], ids=new Set((data.entries||[]).map(e=>e.id));
+    const del=new Set([...(prev&&prev.del||[]),...(data.del||[])]);
+    for(const e of (prev&&prev.entries||[])) if(!ids.has(e.id)) del.add(e.id);
+    for(const i of ids) del.delete(i);
+    if(del.size) data.del=[...del].slice(-300); else delete data.del; }
+}
+function hhMark(id){ if(hhLocalOnly(id)) return; const st=hhState(); if(!st) return; st.pend[id]=++HH.stamp+Date.now(); hhSave(st); hhSoon(1500); }
+function hhMarkAll(){ const st=hhState(); if(!st) return; for(const k of Object.keys(S.docs)) if(!hhLocalOnly(k)) st.pend[k]=Date.now(); hhSave(st); hhSoon(500); }
+function hhSoon(ms=1500){ if(!S.ready||!hhState()) return; clearTimeout(HH.t); HH.t=setTimeout(hhSync,ms); }
+setInterval(()=>{ if(!document.hidden) hhSoon(10); }, 20000);
+async function hhRpc(st,fn,body){
+  const ctl=new AbortController(), tm=setTimeout(()=>ctl.abort(),20000);
+  try{ const r=await fetch(st.u+"/rest/v1/rpc/"+fn,{method:"POST",headers:{"Content-Type":"application/json",apikey:st.k},body:JSON.stringify(body),signal:ctl.signal});
+    const j=await r.json().catch(()=>null);
+    if(!r.ok) throw new Error(j&&j.message==="denied"?"denied":(j&&j.message)||("http "+r.status)); return j; }
+  finally{ clearTimeout(tm); }
+}
+function hhMerge(k,a,b){
+  if(!a) return b; if(!b) return a;
+  const newer=(a._ms||0)>=(b._ms||0)?a:b, older=newer===a?b:a;
+  if(a._deleted||b._deleted) return newer;
+  if(isDayKey(k)){ const del=new Set([...(a.del||[]),...(b.del||[])]), m=new Map();
+    for(const e of (older.entries||[])) m.set(e.id,e); for(const e of (newer.entries||[])) m.set(e.id,e);
+    const out=Object.assign({},older,newer); out.entries=[...m.values()].filter(e=>!del.has(e.id)); if(del.size) out.del=[...del].slice(-300); out._ms=Date.now(); return out; }
+  if(k==="people"&&Array.isArray(a.list)&&Array.isArray(b.list)){ const m=new Map(); for(const x of older.list) m.set(x.id,x); for(const x of newer.list) m.set(x.id,x);
+    return Object.assign({},older,newer,{list:[...m.values()],_ms:Date.now()}); }
+  if(a.items&&b.items&&typeof a.items==="object"&&!Array.isArray(a.items)){ return Object.assign({},older,newer,{items:Object.assign({},older.items,newer.items),_ms:Date.now()}); }
+  if(a.days&&b.days&&typeof a.days==="object"){ return Object.assign({},older,newer,{days:Object.assign({},older.days,newer.days),_ms:Date.now()}); }
+  return newer;
+}
+function hhSet(k,d){
+  if(!d||d._deleted){ delete S.docs[k]; }
+  else{ if(k==="people"){ const loc=S.docs.people; d=clone(d); if(loc&&loc.active&&d.list&&d.list.some(x=>x.id===loc.active)) d.active=loc.active; }
+    S.docs[k]=d; }
+  HH.dirtyRender=true;
+}
+function hhTyping(){ const a=document.activeElement; return a&&(a.tagName==="INPUT"||a.tagName==="TEXTAREA"||a.tagName==="SELECT")&&!(a.closest&&a.closest(".sheet")); }
+function hhFlush(){ if(!HH.dirtyRender) return; HH.dirtyRender=false; lsSave(); syncActive(); if(!hhTyping()) render(); else HH.renderLater=true; reschedule(); syncSoon(); }
+document.addEventListener("focusout",()=>{ if(HH.renderLater){ HH.renderLater=false; setTimeout(()=>{ if(!hhTyping()) render(); },50); } });
+async function hhPull(st){
+  for(let i=0;i<50;i++){
+    const r=await hhRpc(st,"ml_pull",{p_h:st.h,p_s:st.s,p_since:st.since||0,p_limit:400});
+    for(const x of (r.docs||[])){ if(x.seq<=(st.seqs[x.k]||0)) continue;
+      if(st.pend[x.k]!=null) hhSet(x.k,hhMerge(x.k,S.docs[x.k],x.d)); else hhSet(x.k,x.d);
+      st.seqs[x.k]=x.seq; }
+    st.since=Math.max(st.since||0,r.max||0); hhSave(st);
+    if(!r.docs||r.docs.length<400) break;
+  }
+}
+async function hhPush(st){
+  for(let round=0;round<5;round++){
+    const keys=Object.keys(st.pend); if(!keys.length) return;
+    for(let i=0;i<keys.length;i+=80){
+      const chunk=keys.slice(i,i+80), stamps={}; chunk.forEach(k=>stamps[k]=st.pend[k]);
+      const docs=chunk.map(k=>({k,d:S.docs[k]||{_deleted:true,_ms:Date.now()},base:st.seqs[k]||0}));
+      const r=await hhRpc(st,"ml_push",{p_h:st.h,p_s:st.s,p_docs:docs});
+      for(const o of (r.ok||[])){ st.seqs[o.k]=o.seq; if(st.pend[o.k]===stamps[o.k]) delete st.pend[o.k]; }
+      for(const c of (r.conflict||[])){ hhSet(c.k,hhMerge(c.k,S.docs[c.k],c.d)); st.seqs[c.k]=c.seq; st.pend[c.k]=Date.now(); }
+      hhSave(st);
+    }
+  }
+}
+async function hhSync(){
+  const st=hhState(); if(!st) return; if(HH.busy){ HH.again=true; return; }
+  HH.busy=true;
+  try{ await hhPull(st); hhFlush();
+    await hhPush(st); hhFlush();
+    st.lastOk=Date.now(); st.err=null; hhSave(st); HH.err=null; }
+  catch(e){ HH.err=e&&e.name==="AbortError"?"timeout":(e&&e.message)||"feil"; const s2=hhState(); if(s2){ s2.err=HH.err; hhSave(s2); } hhFlush(); }
+  finally{ HH.busy=false; if(UI.tab==="innst"&&UI.sset==="sync"&&!hhTyping()) render(); if(HH.again){ HH.again=false; hhSoon(800); } }
+}
+function hhRand(n){ const a=new Uint8Array(n); crypto.getRandomValues(a); return [...a].map(x=>"abcdefghijkmnpqrstuvwxyz23456789"[x%32]).join(""); }
+function hhEncode(o,pre){ return pre+"."+btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); }
+function hhDecode(code){ const m=String(code||"").trim().match(/^(MLS1|MLH1)\.([A-Za-z0-9_-]+)$/); if(!m) return null;
+  try{ const o=JSON.parse(decodeURIComponent(escape(atob(m[2].replace(/-/g,"+").replace(/_/g,"/"))))); return {type:m[1],o}; }catch(e){ return null; } }
+const hhShareCode = st => hhEncode({u:st.u,k:st.k,h:st.h,s:st.s},"MLH1");
+const SNAP_PERSON = k => /^(day-|profile$|weights$|measures$|morning$)/.test(k);
+async function hhConnect(code){
+  const c=hhDecode(code); if(!c||!/^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(c.o.u||"")||!c.o.k){ toast("Koden er ikke gyldig"); return; }
+  if(c.type==="MLS1"){
+    const st={u:c.o.u,k:c.o.k,h:"h"+hhRand(19),s:hhRand(40),since:0,seqs:{},pend:{}};
+    try{ const ok=await hhRpc(st,"ml_create",{p_h:st.h,p_s:st.s}); if(ok!==true) throw new Error("create"); }
+    catch(e){ toast("Fikk ikke kontakt med serveren. Sjekk nettet og prøv igjen."); return; }
+    hhSave(st); hhMarkAll(); toast("Synk er slått på. Del koden med de andre."); UI.sset="sync"; render(); return;
+  }
+  const st={u:c.o.u,k:c.o.k,h:c.o.h,s:c.o.s,since:0,seqs:{},pend:{}};
+  const snap=clone(S.docs);
+  try{ await hhPull(st); }
+  catch(e){ toast(String(e.message)==="denied"?"Koden ble avvist":"Fikk ikke kontakt med serveren. Sjekk nettet og prøv igjen."); return; }
+  if(!S.docs.people||!(S.docs.people.list||[]).length){ toast("Fant ingen data for koden"); S.docs=snap; return; }
+  hhSave(st); UI.hhSnap=snap; hhFlush();
+  openSheet({type:"hhWho"});
+}
+function hhChooseMe(pid){
+  const st=hhState(), snap=UI.hhSnap; UI.hhSnap=null;
+  if(snap&&st){
+    /* own data logged on this phone before joining: move "Meg" (p0) into the chosen person and merge shared lists */
+    for(const [k,d] of Object.entries(snap)){
+      if(hhLocalOnly(k)||k==="people"||k.includes(":")) continue;
+      let tk=k; if(SNAP_PERSON(k)){ if(pid==="p0") tk=k; else tk=pid+":"+k; }
+      const merged=S.docs[tk]?hhMerge(tk,S.docs[tk],Object.assign({},d,{_ms:1})):d;
+      S.docs[tk]=merged; st.pend[tk]=Date.now();
+    }
+    hhSave(st);
+  }
+  const p=clone(people()); p.kind="people"; p.active=pid; S.docs.people=p; CUR=pid; lsSave();
+  closeSheet(); UI.tab="dag"; UI.date=todayKey(); render(); hhSoon(300); toast(`Synk er slått på. Du er ${personOf(pid).name}.`);
+}
+function settingsSync(){
+  const st=hhState();
+  if(!st) return `<section class="card" style="display:flex;flex-direction:column;gap:10px">
+    <div class="note">Med synk har alle telefonene de samme dataene. Det du logger for andre, dukker opp hos dem, og du ser det de logger. Fargevalg, Kassalapp-nøkkel og coach-oppsett blir værende på hver telefon.</div>
+    <label for="hhCode" class="flabel">Synkkode</label><textarea class="inp" id="hhCode" rows="3" placeholder="Lim inn koden her" autocomplete="off" spellcheck="false" style="font-family:monospace;font-size:12px"></textarea>
+    <button class="btn primary block" data-act="hhConnect">Koble til</button>
+    <div class="note">Første telefon bruker serverkoden og lager da en synkkode til de andre. De andre limer inn synkkoden fra den første telefonen.</div></section>`;
+  const nP=Object.keys(st.pend).length, t=st.lastOk?new Date(st.lastOk):null;
+  const when=t?(keyOf(t)===todayKey()?`i dag kl. ${String(t.getHours()).padStart(2,"0")}:${String(t.getMinutes()).padStart(2,"0")}`:dateLabel(keyOf(t)).toLowerCase()):"aldri";
+  return `<section class="card" style="display:flex;flex-direction:column;gap:10px">
+    <div class="okline" style="color:${st.err?"var(--over)":"var(--ok)"}">${st.err?(st.err==="denied"?"Koden ble avvist av serveren":"Ingen kontakt med serveren akkurat nå"):"Synk er på"}</div>
+    <div class="note num">Sist synket: ${when}${nP?` · ${nP} endring${nP===1?"":"er"} venter`:""}</div>
+    <div class="field"><label for="hhMe">Dette er meg</label><select class="inp" id="hhMe">${people().list.map(p=>`<option value="${p.id}" ${p.id===CUR?"selected":""}>${esc(p.name)}</option>`).join("")}</select></div>
+    <button class="btn ghost block" data-act="hhNow">Synk nå</button></section>
+   <div class="sect">Legg til en telefon</div><section class="card" style="display:flex;flex-direction:column;gap:10px">
+    <div class="note">Send denne koden til den andre, og be henne lime den inn under Innstillinger → Synk mellom telefoner. Del den bare med folk som skal se dataene deres.</div>
+    <textarea class="inp" id="hhShare" rows="3" readonly style="font-family:monospace;font-size:12px">${esc(hhShareCode(st))}</textarea>
+    <button class="btn primary block" data-act="hhShare">Del koden</button></section>
+   <button class="btn danger block" data-act="hhOff" style="margin-top:10px">Slå av synk på denne telefonen</button>`;
+}
+function sheetHhWho(){
+  return `<div class="note">Hvem av disse er du? Appen åpner på denne personen. ${UI.hhSnap&&Object.keys(UI.hhSnap).some(k=>/^day-/.test(k))?"Det du har logget på denne telefonen fra før, flyttes over til personen du velger.":""}</div>
+   <div class="list">${people().list.map(p=>`<button data-act="hhMe" data-v="${p.id}"><span class="nm"><span class="dot" style="background:${pcolor(p)}"></span> ${esc(p.name)}</span><span aria-hidden="true">›</span></button>`).join("")}</div>`;
+}
 
 /* ---------- Google Sheets-synk: sender dager, vekt og Garmin-tall til et regneark som coachen leser ----------
    Hver post sendes som GET til en Google Apps Script-nettapp (se data/coach/Kode.gs) via httpJson.
@@ -1412,7 +1557,7 @@ function settingsMeals(){
    <div class="note" style="margin-top:8px">Rekkefølgen her bestemmer rekkefølgen på Dag. Skjulte måltider vises likevel hvis det er logget noe i dem. «Pre-workout» vises bare på treningsdager.${mealCfg()?"":" Uten egne valg sorteres måltidene etter tidene i «Måltidstider»."}</div>
    ${mealCfg()?`<button class="btn ghost block" data-act="mealReset" style="margin-top:10px">Tilbakestill</button>`:""}`;
 }
-const SSUB={people:"Personer",meals:"Måltider",plan:"Faste måltider og trening",food:"Matvarer og Kassalapp",data:"Coach og backup"};
+const SSUB={sync:"Synk mellom telefoner",people:"Personer",meals:"Måltider",plan:"Faste måltider og trening",food:"Matvarer og Kassalapp",data:"Coach og backup"};
 function viewSettings(){
   const pl=people().list, sub=UI.sset||"";
   if(sub&&SSUB[sub]){
@@ -1435,6 +1580,7 @@ function viewSettings(){
     <div class="field"><label for="kKey">API-nøkkel</label><input class="inp" id="kKey" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(kassalKey())}" placeholder="Lim inn nøkkelen"></div>
     <button class="btn primary block" data-act="saveKey" ${UI.kasStatus==="testing"?"disabled":""}>Lagre og test</button></section>
 `;
+    else if(sub==="sync") body=settingsSync();
     else if(sub==="data") body=`    <div class="sect">Coach (Google Sheets)</div><section class="card" style="display:flex;flex-direction:column;gap:10px">
     <div class="note">Sender mat og vekt for alle personer til regnearket ditt, så Claude kan følge med. Lim inn nettapp-adressen fra Apps Script (slutter på /exec).</div>
     <div class="field"><label for="sheetUrl">Nettapp-adresse</label><input class="inp" id="sheetUrl" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(sheetUrl())}" placeholder="https://script.google.com/macros/s/…/exec"></div>
@@ -1460,6 +1606,7 @@ function viewSettings(){
       ${row("plan","Faste måltider og trening",`${nT} faste måltider · treningsdager`)}
       <button data-act="tab" data-v="tider"><span class="nm">Måltidstider og varsler<small>Kalkulator, faste tider og påminnelser${plan().reminders?" (varsler på)":""}</small></span><span aria-hidden="true">›</span></button>
       ${row("food","Matvarer og Kassalapp",`${nF} egne matvarer · Kassalapp ${kassalKey()?"koblet til":"ikke koblet til"}`)}
+      ${row("sync","Synk mellom telefoner",(()=>{ const st=hhState(); return st?(st.err?"Ingen kontakt med serveren":"På"):"Av – del dataene med en annen telefon"; })())}
       ${row("data","Coach og backup",bk==null?"Ingen backup tatt ennå":bk===0?"Siste backup i dag":`Siste backup for ${bk} ${bk===1?"dag":"dager"} siden`)}
     </div>
     <div class="sect">Om appen</div><section class="card" style="display:flex;flex-direction:column;gap:10px">
@@ -1487,6 +1634,7 @@ function renderSheet(){
   else if(s.type==="tpl"){ title=UI.tplDraft.dish?(UI.tplDraft.prep?(UI.tplDraft.id?"Endre mealprep":"Ny mealprep"):UI.tplDraft.id?"Endre rett":"Ny rett"):UI.tplDraft.id&&tplById(UI.tplDraft.id)?"Endre fast måltid":"Nytt fast måltid"; body=UI.tplDraft.dish?sheetDish():sheetTpl(); }
   else if(s.type==="copyMeal"){ title=s.mk==="*"?"Kopier hele dagen":meal(s.mk)+": kopier"; body=sheetCopyMeal(s); }
   else if(s.type==="weight"){ title="Endre vekt"; body=sheetWeight(s); }
+  else if(s.type==="hhWho"){ title="Hvem er du?"; body=sheetHhWho(); }
   else if(s.type==="prepDist"){ title="Fordel porsjoner"; body=sheetPrepDist(s); }
   else if(s.type==="measure"){ title="Endre kroppsmål"; body=sheetMeasure(s); }
   else if(s.type==="amount"){ title=s.entryId?"Endre":"Mengde"; body=sheetAmount(s); }
@@ -2134,6 +2282,13 @@ document.addEventListener("click", async ev=>{
   else if(a==="tplAdd"){ UI.tplDraft.name=$("#tplName").value; dishSync(); UI.addTarget="tpl"; openSheet({type:"pick",meal:"tpl",q:""}); }
   else if(a==="tplItem"){ const i=UI.tplDraft.items[Number(v)]; UI.tplDraft.name=$("#tplName").value; dishSync(); UI.addTarget="tpl";
     openAmount({id:i.foodId,name:i.name,per:i.per,portion:i.portion,base:!i.foodId},"tpl",{g:i.g,tplIndex:Number(v)}); }
+  else if(a==="hhConnect"){ const code=$("#hhCode").value; t.disabled=true; t.textContent="Kobler til …"; hhConnect(code).finally(()=>{ if(t.isConnected){ t.disabled=false; t.textContent="Koble til"; } }); }
+  else if(a==="hhMe"){ hhChooseMe(v); }
+  else if(a==="hhNow"){ hhSync().then(()=>toast(HH.err?"Fikk ikke synket. Sjekk nettet.":"Synket")); }
+  else if(a==="hhShare"){ const code=hhShareCode(hhState()), txt="Synkkode for Makrologg (lim inn under Innstillinger → Synk mellom telefoner):\n"+code;
+    if(window.Android&&Android.share) Android.share(txt,"Makrologg synkkode"); else if(navigator.share) navigator.share({text:txt}).catch(()=>{});
+    else if(navigator.clipboard) navigator.clipboard.writeText(code).then(()=>toast("Koden er kopiert")); }
+  else if(a==="hhOff"){ hhSave(null); toast("Synk er slått av på denne telefonen. Dataene er beholdt."); render(); }
   else if(a==="newPrep"){ UI.tplDraft={id:"",name:"",items:[],dish:true,cooked:"",servings:"",prep:true,save:false,meal:guessMeal()}; openSheet({type:"tpl"}); }
   else if(a==="prepNext"){ const t=UI.tplDraft; dishSync(); t.name=(t.name||"").trim();
     if(!t.name){ toast("Gi retten et navn"); return; } if(!t.items.length){ toast("Legg til minst én ingrediens"); return; }
@@ -2193,7 +2348,7 @@ document.addEventListener("click", async ev=>{
     if(window.Android&&Android.share) Android.share(txt,"Makrologg-backup "+todayKey());
     else { const ta=$("#backupTxt"); ta.value=txt; ta.select(); try{ navigator.clipboard.writeText(txt); toast("Kopiert"); }catch(e){} } }
   else if(a==="importData"){ try{ const j=JSON.parse($("#backupTxt").value); if(j.app!=="makrologg"||!j.docs) throw 0;
-      S.docs=j.docs; lsSave(); syncActive(); UI.date=todayKey(); UI.lastToday=UI.date; render(); reschedule(); toast("Backup gjenopprettet"); }catch(e){ toast("Teksten er ikke en gyldig backup"); } }
+      S.docs=j.docs; lsSave(); hhMarkAll(); syncActive(); UI.date=todayKey(); UI.lastToday=UI.date; render(); reschedule(); toast("Backup gjenopprettet"); }catch(e){ toast("Teksten er ikke en gyldig backup"); } }
   else if(a==="bcLookup"){ handleCode($("#bcIn").value); }
   else if(a==="labelPhoto"){ if(UI.sheet && UI.sheet.type==="product") UI.sheet.p=readProductForm(); $("#fileLabel").click(); }
   else if(a==="estimate"){ openSheet({type:"estimate",meal:UI.sheet.meal,text:(UI.sheet.q||"")}); }
@@ -2303,6 +2458,7 @@ document.addEventListener("change", ev=>{
   if(ev.target.id==="datePick" && ev.target.value){ UI.date=ev.target.value; ev.target.style.pointerEvents="none"; render(); }
   if(ev.target.matches("[data-pl]")) savePlanForm();
   if(ev.target.dataset&&ev.target.dataset.pr&&UI.sheet&&UI.sheet.rows){ UI.sheet.rows[Number(ev.target.dataset.i)][ev.target.dataset.pr]=ev.target.value; return; }
+  if(ev.target.id==="hhMe"){ setActive(ev.target.value); toast(`Appen åpner nå på ${personOf(ev.target.value).name}`); return; }
   if(ev.target.id==="dayNote"){ const d=clone(dayDoc(UI.date)); d.kind="day"; d.date=UI.date; const tx=ev.target.value.trim(); if(tx) d.note=tx; else delete d.note; UI.noteOpen=false; writeDoc(pk("day-")+UI.date,d); toast(tx?"Notat lagret":"Notat fjernet"); }
   if(ev.target.dataset&&(ev.target.dataset.mlabel||ev.target.dataset.mshow)){ const list=MEALS.map(([k,l])=>({k,label:l,hidden:MEALS_HIDDEN.has(k)}));
     const m=list.find(x=>x.k===(ev.target.dataset.mlabel||ev.target.dataset.mshow)); if(!m) return;
