@@ -1,4 +1,4 @@
-<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="30"><title>Makrologg</title><meta name="theme-color" content="#000000"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><meta name="apple-mobile-web-app-title" content="Makrologg"><link rel="apple-touch-icon" href="apple-touch-icon.png"><link rel="manifest" href="manifest.webmanifest">
+<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="31"><title>Makrologg</title><meta name="theme-color" content="#000000"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><meta name="apple-mobile-web-app-title" content="Makrologg"><link rel="apple-touch-icon" href="apple-touch-icon.png"><link rel="manifest" href="manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
 <style>
@@ -655,6 +655,8 @@ const SNAP_PERSON = k => /^(day-|profile$|weights$|measures$|morning$)/.test(k);
 async function hhConnect(code){
   const c=hhDecode(code); if(!c||!/^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(c.o.u||"")||!c.o.k){ toast("Koden er ikke gyldig"); return; }
   if(c.type==="MLS1"){
+    if(!UI.hhFirstOk){ UI.hhFirstOk=true; UI.hhCodeDraft=code; render(); return; }
+    UI.hhFirstOk=false;
     const st={u:c.o.u,k:c.o.k,h:"h"+hhRand(19),s:hhRand(40),since:0,seqs:{},pend:{}};
     try{ const ok=await hhRpc(st,"ml_create",{p_h:st.h,p_s:st.s}); if(ok!==true) throw new Error("create"); }
     catch(e){ toast("Fikk ikke kontakt med serveren. Sjekk nettet og prøv igjen."); return; }
@@ -687,13 +689,16 @@ function settingsSync(){
   const st=hhState();
   if(!st) return `<section class="card" style="display:flex;flex-direction:column;gap:10px">
     <div class="note">Med synk har alle telefonene de samme dataene. Det du logger for andre, dukker opp hos dem, og du ser det de logger. Fargevalg, Kassalapp-nøkkel og coach-oppsett blir værende på hver telefon.</div>
-    <label for="hhCode" class="flabel">Synkkode</label><textarea class="inp" id="hhCode" rows="3" placeholder="Lim inn koden her" autocomplete="off" spellcheck="false" style="font-family:monospace;font-size:12px"></textarea>
-    <button class="btn primary block" data-act="hhConnect">Koble til</button>
+    <label for="hhCode" class="flabel">Synkkode</label><textarea class="inp" id="hhCode" rows="3" placeholder="Lim inn koden her" autocomplete="off" spellcheck="false" style="font-family:monospace;font-size:12px">${esc(UI.hhCodeDraft||"")}</textarea>
+    ${UI.hhFirstOk?`<div class="gbox"><b>Dette er serverkoden.</b><div class="note">Den skal bare brukes på den første telefonen. Har en annen telefon allerede slått på synk, trykker du «Del koden» der og limer inn den koden her i stedet (den starter med MLH1).</div>
+      <button class="btn primary block" data-act="hhConnect">Ja, dette er den første telefonen</button><button class="btn ghost block" data-act="hhCancel">Avbryt</button></div>`
+     :`<button class="btn primary block" data-act="hhConnect">Koble til</button>`}
     <div class="note">Første telefon bruker serverkoden og lager da en synkkode til de andre. De andre limer inn synkkoden fra den første telefonen.</div></section>`;
   const nP=Object.keys(st.pend).length, t=st.lastOk?new Date(st.lastOk):null;
   const when=t?(keyOf(t)===todayKey()?`i dag kl. ${String(t.getHours()).padStart(2,"0")}:${String(t.getMinutes()).padStart(2,"0")}`:dateLabel(keyOf(t)).toLowerCase()):"aldri";
   return `<section class="card" style="display:flex;flex-direction:column;gap:10px">
     <div class="okline" style="color:${st.err?"var(--over)":"var(--ok)"}">${st.err?(st.err==="denied"?"Koden ble avvist av serveren":"Ingen kontakt med serveren akkurat nå"):"Synk er på"}</div>
+    <div class="note num">Delt mellom: ${people().list.map(p=>esc(p.name)).join(", ")}</div>
     <div class="note num">Sist synket: ${when}${nP?` · ${nP} endring${nP===1?"":"er"} venter`:""}</div>
     <div class="field"><label for="hhMe">Dette er meg</label><select class="inp" id="hhMe">${people().list.map(p=>`<option value="${p.id}" ${p.id===CUR?"selected":""}>${esc(p.name)}</option>`).join("")}</select></div>
     <button class="btn ghost block" data-act="hhNow">Synk nå</button></section>
@@ -2283,6 +2288,7 @@ document.addEventListener("click", async ev=>{
   else if(a==="tplItem"){ const i=UI.tplDraft.items[Number(v)]; UI.tplDraft.name=$("#tplName").value; dishSync(); UI.addTarget="tpl";
     openAmount({id:i.foodId,name:i.name,per:i.per,portion:i.portion,base:!i.foodId},"tpl",{g:i.g,tplIndex:Number(v)}); }
   else if(a==="hhConnect"){ const code=$("#hhCode").value; t.disabled=true; t.textContent="Kobler til …"; hhConnect(code).finally(()=>{ if(t.isConnected){ t.disabled=false; t.textContent="Koble til"; } }); }
+  else if(a==="hhCancel"){ UI.hhFirstOk=false; UI.hhCodeDraft=""; render(); }
   else if(a==="hhMe"){ hhChooseMe(v); }
   else if(a==="hhNow"){ hhSync().then(()=>toast(HH.err?"Fikk ikke synket. Sjekk nettet.":"Synket")); }
   else if(a==="hhShare"){ const code=hhShareCode(hhState()), txt="Synkkode for Makrologg (lim inn under Innstillinger → Synk mellom telefoner):\n"+code;
