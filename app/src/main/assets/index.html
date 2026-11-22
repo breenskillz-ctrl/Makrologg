@@ -1,4 +1,4 @@
-<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="34"><title>Makrologg</title><meta name="theme-color" content="#000000"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><meta name="apple-mobile-web-app-title" content="Makrologg"><link rel="apple-touch-icon" href="apple-touch-icon.png"><link rel="manifest" href="manifest.webmanifest">
+<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="35"><title>Makrologg</title><meta name="theme-color" content="#000000"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><meta name="apple-mobile-web-app-title" content="Makrologg"><link rel="apple-touch-icon" href="apple-touch-icon.png"><link rel="manifest" href="manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
 <style>
@@ -881,7 +881,7 @@ function render(){
   applyPal(); applyMeals();
   if(S.ready && PENDING_SC){ const sc=PENDING_SC; PENDING_SC=null; setTimeout(()=>runShortcut(sc),0); }
   // tabs
-  $("#tabs").innerHTML = [["dag","Dag",ICON.day],["meny","Meny",ICON.pot],["hist","Historikk",ICON.hist],["mal","Kropp",ICON.goal]]
+  $("#tabs").innerHTML = [["dag","Dag",ICON.day],["meny","Mealprep",ICON.pot],["hist","Historikk",ICON.hist],["mal","Kropp",ICON.goal]]
     .map(([k,l,i])=>`<button data-act="tab" data-v="${k}" class="${UI.tab===k?"on":""}">${i}${l}</button>`).join("");
   $("#datenav").innerHTML = UI.tab==="dag" ? `<button data-act="day" data-v="-1" aria-label="Forrige dag">‹</button><button class="dlabel" data-act="pickDate" aria-label="Velg dato: ${dateLabel(UI.date)}">${dateLabel(UI.date)}</button><button data-act="day" data-v="1" aria-label="Neste dag">›</button>` : "";
   { const gb=$("#gearBtn"); if(gb) gb.classList.toggle("badge", needBackup()); }
@@ -949,7 +949,6 @@ function viewDay(){
 
   </section>`;
   h += weekSummaryCard();
-  h += plannedCard(UI.date);
   if(!(S.docs[pk("profile")])) h += `<section class="card"><div style="font-weight:600;margin-bottom:4px">Sett dine egne mål</div><div class="note" style="margin-bottom:10px">Målene over er standardverdier. Regn ut dine basert på vekt, høyde og aktivitet.</div><button class="btn primary" data-act="tab" data-v="mal">Regn ut mål</button></section>`;
   const yday = dayDoc(addDays(UI.date,-1));
   const sch=daySchedule(UI.date), at={}; sch.forEach(x=>at[x.meal]=x);
@@ -1317,7 +1316,8 @@ function sheetPrepDist(s){
    ${s.stored?`<button class="btn danger block" data-act="prepDiscard">Forkast resten</button>`:""}`;
 }
 
-function viewMenu(){
+function viewMenu(){ return mealprepCard(); }
+function viewMenuOld(){
   const mon=UI.menuWeek||mondayOf(todayKey()), today=todayKey();
   if(UI.menuView==="shop") return viewShop(mon);
   const ppl=people().list, sun=addDays(mon,6);
@@ -1532,28 +1532,48 @@ function weightTrend(ws){
   const num=pts.reduce((a,p)=>a+(p[0]-mx)*(p[1]-my),0), den=pts.reduce((a,p)=>a+(p[0]-mx)**2,0);
   return den? num/den*7 : null;
 }
+function weightTrend21(ws){
+  const t=todayKey(), from=addDays(t,-21), pts=ws.filter(([k])=>k>=from).map(([k,v])=>[(parseKey(k)-parseKey(from))/864e5,v]);
+  if(pts.length<5||pts[pts.length-1][0]-pts[0][0]<10) return null;
+  const n=pts.length, mx=pts.reduce((a,p)=>a+p[0],0)/n, my=pts.reduce((a,p)=>a+p[1],0)/n;
+  const num=pts.reduce((a,p)=>a+(p[0]-mx)*(p[1]-my),0), den=pts.reduce((a,p)=>a+(p[0]-mx)**2,0);
+  return den? num/den*7 : null;
+}
 function goalPlan(){
   const prof=S.docs[pk("profile")]||{}, target=prof.targetWeight, td=prof.targetDate, t=todayKey();
   const ws=Object.entries(weightsDoc().items||{}).sort((a,b)=>a[0]<b[0]?-1:1);
   if(!target||!td||!ws.length) return null;
   const recent=ws.filter(([k])=>k>=addDays(ws[ws.length-1][0],-6)), cur=recent.reduce((a,x)=>a+x[1],0)/recent.length;
-  const days=Math.round((parseKey(td)-parseKey(t))/864e5), left=cur-target, rate=weightTrend(ws);
+  const days=Math.round((parseKey(td)-parseKey(t))/864e5), left=cur-target;
   if(Math.abs(left)<0.3) return {done:true,target,td,cur,days};
   if(days<=0) return {past:true,target,td,cur,left,days};
   const need=-left/days*7, kcal=left*7700/days;
+  const rate=weightTrend21(ws), fresh=prof.targetSetAt&&Date.now()-prof.targetSetAt<14*864e5;
+  const mt=maintKcal(), gk=goals().kcal, planRate=mt?(gk-mt)*7/7700:null, needKcal=mt?mt-kcal:null;
+  const same=(a,b)=>a!=null&&Math.sign(a)===Math.sign(b);
+  const plan = planRate==null ? null : (same(planRate,need)&&Math.abs(planRate)>=Math.abs(need)*0.9 ? "ok" : "weak");
   let status="nodata";
-  if(rate!=null){ const proj=cur+rate*days/7; status = (left>0? proj<=target+0.3 : proj>=target-0.3) ? "ok" : (Math.sign(rate)===Math.sign(need)&&Math.abs(rate)>=Math.abs(need)*0.6 ? "near" : "behind"); }
-  return {target,td,cur,left,days,need,kcal,rate,status};
+  if(rate!=null&&!fresh){ const r=same(rate,need)?Math.abs(rate)/Math.abs(need):0; status = r>=0.85?"ok":r>=0.5?"near":"behind"; }
+  else if(plan) status = plan==="ok"?"planok":"planweak";
+  return {target,td,cur,left,days,need,kcal,rate,status,plan,planRate,needKcal,gk,fresh};
 }
 function goalBox(){
   const g=goalPlan(); if(!g) return "";
   if(g.done) return `<div class="gbox"><b>Du har nådd målvekten.</b></div>`;
   if(g.past) return `<div class="gbox">Måldatoen er passert. Velg en ny dato.</div>`;
-  const dir=g.left>0?"ned":"opp", rs=g.rate!=null?`${g.rate>0?"+":""}${fmt1(g.rate)} kg i uka`:null;
-  const st={ok:["Du er i rute.","var(--ok)"],near:["Du er litt bak skjema.","var(--fat)"],behind:["Du er bak skjema.","var(--over)"],nodata:["Logg vekten et par uker, så ser du om du er i rute.","var(--muted)"]}[g.status];
+  const dir=g.left>0?"ned":"opp", kgw=x=>`${fmt1(Math.abs(x))} kg i uka`;
+  const head={ok:["Du er i rute.","var(--ok)"],near:["Du er litt bak skjema.","var(--warn)"],behind:["Du er bak skjema.","var(--over)"],
+    planok:["Planen holder.","var(--ok)"],planweak:["Kaloriplanen er for svak for denne datoen.","var(--warn)"],nodata:["Logg vekten noen ganger i uka i to–tre uker, så ser du om du er i rute.","var(--muted)"]}[g.status];
+  const lines=[];
+  lines.push(`Du må ${dir} ca. <b>${kgw(g.need)}</b>, som tilsvarer ca. <b>${r0(Math.abs(g.kcal))} kcal ${g.left>0?"underskudd":"overskudd"} per dag</b>.`);
+  if(g.planRate!=null) lines.push(`Med dagens kalorimål (${r0(g.gk)} kcal) går du ca. ${g.planRate<0?"ned":"opp"} <b>${kgw(g.planRate)}</b>.${g.plan==="weak"&&g.needKcal?` For å nå datoen trenger du ca. <b>${r0(g.needKcal)} kcal</b> om dagen.`:""}`);
+  else lines.push(`Fyll inn kjønn, alder, høyde og aktivitet under «Mål», så sjekker appen om kalorimålet ditt holder.`);
+  if(g.rate!=null) lines.push(`Vekta de siste tre ukene: ${g.rate>0?"+":"−"}${kgw(g.rate)}.${g.fresh?" Målet er nytt, så appen ser mest på planen de første to ukene.":""}`);
+  else lines.push(`Appen trenger minst fem veiinger over ti dager for å regne ut tempoet ditt.`);
   return `<div class="gbox"><div class="gnums"><div><b class="num">${fmt1(Math.abs(g.left))}</b><span>kg ${dir}</span></div><div><b class="num">${g.days}</b><span>dager igjen</span></div><div><b class="num">${fmt1(Math.abs(g.need))}</b><span>kg i uka</span></div></div>
-    <div class="note">Det tilsvarer ca. <b>${r0(Math.abs(g.kcal))} kcal ${g.left>0?"underskudd":"overskudd"} per dag</b>.${rs?` Trenden din nå: ${rs}.`:""} Utgangspunktet er snittet av siste ukes veiinger (${fmt1(g.cur)} kg).</div>
-    <div style="font-weight:700;color:${st[1]}">${st[0]}</div></div>`;
+    <div style="font-weight:700;color:${head[1]}">${head[0]}</div>
+    ${lines.map(x=>`<div class="note">${x}</div>`).join("")}
+    <div class="note">Utgangspunktet er snittet av siste ukes veiinger (${fmt1(g.cur)} kg).</div></div>`;
 }
 function goalLine(){
   const g=goalPlan(); if(!g||UI.date!==todayKey()) return "";
@@ -1566,7 +1586,7 @@ function goalLine(){
 function weightSection(){
   const ws=Object.entries(weightsDoc().items||{}).sort((a,b)=>a[0]<b[0]?-1:1);
   const prof=(S.docs[pk("profile")]||{}), target=prof.targetWeight||null, t=todayKey();
-  const last=ws.length?ws[ws.length-1]:null, rate=weightTrend(ws);
+  const last=ws.length?ws[ws.length-1]:null, rate=weightTrend21(ws)??weightTrend(ws);
   const rs = rate!=null ? `${rate>0?"+":""}${fmt1(rate)} kg i uka` : "";
   let est="";
   if(target&&last){ const diff=last[1]-target;
@@ -2467,7 +2487,7 @@ document.addEventListener("click", async ev=>{
   else if(a==="dayMenu"){ openSheet({type:"dayMenu"}); }
   else if(a==="wOther"){ UI.wOther=true; render(); }
   else if(a==="editTarget"){ openSheet({type:"target"}); }
-  else if(a==="saveTarget"){ const pr=clone(S.docs[pk("profile")]||{kind:"profile"}); pr.kind="profile"; const kg=numIn($("#tgtKg").value); pr.targetWeight=kg>=20&&kg<=400?kg:null; pr.targetDate=pr.targetWeight?($("#tgtDate").value||null):null; closeSheet(); writeDoc(pk("profile"),pr); toast(pr.targetWeight?`Målvekt ${fmt1(kg)} kg lagret`:"Målvekt fjernet"); }
+  else if(a==="saveTarget"){ const pr=clone(S.docs[pk("profile")]||{kind:"profile"}); pr.kind="profile"; const kg=numIn($("#tgtKg").value); pr.targetWeight=kg>=20&&kg<=400?kg:null; pr.targetDate=pr.targetWeight?($("#tgtDate").value||null):null; pr.targetSetAt=Date.now(); closeSheet(); writeDoc(pk("profile"),pr); toast(pr.targetWeight?`Målvekt ${fmt1(kg)} kg lagret`:"Målvekt fjernet"); }
   else if(a==="clearTarget"){ const pr=clone(S.docs[pk("profile")]||{kind:"profile"}); pr.kind="profile"; pr.targetWeight=null; pr.targetDate=null; closeSheet(); writeDoc(pk("profile"),pr); toast("Målvekt fjernet"); }
   else if(a==="newMeasure"){ openSheet({type:"measNew"}); }
   else if(a==="histN"){ UI.histN=Number(v); render(); }
