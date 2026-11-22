@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.webkit.JavascriptInterface
+import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
@@ -28,7 +29,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         /** Raise when the bridge below gains features the web page depends on. */
-        const val NATIVE_API = 7
+        const val NATIVE_API = 8
         const val REPO = "breenskillz-ctrl/Makrologg"
         const val WEB_URL = "https://raw.githubusercontent.com/$REPO/main/app/src/main/assets/index.html"
         const val RELEASE_URL = "https://api.github.com/repos/$REPO/releases/latest"
@@ -46,6 +47,11 @@ class MainActivity : AppCompatActivity() {
         js("window.onNativeBarcode && window.onNativeBarcode(${if (code != null) JSONObject.quote(code) else "null"})")
     }
 
+    private var fileCb: ValueCallback<Array<Uri>>? = null
+    private val fileLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+        val cb = fileCb; fileCb = null
+        cb?.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(r.resultCode, r.data))
+    }
     private val notifLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { _ ->
         js("window.onNotifPermission && window.onNotifPermission(${JSONObject.quote(notifState())})")
     }
@@ -92,7 +98,20 @@ class MainActivity : AppCompatActivity() {
             allowFileAccess = true
             textZoom = 100
         }
-        web.webChromeClient = WebChromeClient()
+        web.webChromeClient = object : WebChromeClient() {
+            override fun onShowFileChooser(view: WebView?, cb: ValueCallback<Array<Uri>>?, params: FileChooserParams?): Boolean {
+                fileCb?.onReceiveValue(null)
+                fileCb = cb
+                return try {
+                    val i = Intent(Intent.ACTION_GET_CONTENT).apply {
+                        addCategory(Intent.CATEGORY_OPENABLE)
+                        val accept = params?.acceptTypes?.firstOrNull { it.contains("/") }
+                        type = accept ?: "*/*"
+                    }
+                    fileLauncher.launch(Intent.createChooser(i, "Velg fil")); true
+                } catch (e: Exception) { fileCb = null; false }
+            }
+        }
         web.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val url = request.url
@@ -311,6 +330,26 @@ class MainActivity : AppCompatActivity() {
                     putExtra(Intent.EXTRA_SUBJECT, title)
                 }
                 startActivity(Intent.createChooser(send, title))
+            }
+        }
+
+        @JavascriptInterface
+        fun shareFile(name: String, content: String) {
+            runOnUiThread {
+                try {
+                    val dir = File(cacheDir, "backup").apply { mkdirs() }
+                    dir.listFiles()?.forEach { it.delete() }
+                    val safe = name.replace(Regex("[^A-Za-z0-9._-]"), "_")
+                    val out = File(dir, safe); out.writeText(content)
+                    val uri = FileProvider.getUriForFile(this@MainActivity, "$packageName.files", out)
+                    val send = Intent(Intent.ACTION_SEND).apply {
+                        type = "application/json"
+                        putExtra(Intent.EXTRA_STREAM, uri)
+                        putExtra(Intent.EXTRA_SUBJECT, safe)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    startActivity(Intent.createChooser(send, "Lagre backup"))
+                } catch (e: Exception) { }
             }
         }
 

@@ -76,7 +76,7 @@ object Reminders {
             val nm = ctx.getSystemService(NotificationManager::class.java) ?: return
             if (nm.getNotificationChannel(CHANNEL) == null) {
                 val ch = NotificationChannel(CHANNEL, "Måltider", NotificationManager.IMPORTANCE_HIGH)
-                ch.description = "Påminnelser om måltider og vann"
+                ch.description = "Påminnelser om måltider"
                 ch.enableVibration(true)
                 nm.createNotificationChannel(ch)
             }

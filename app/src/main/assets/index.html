@@ -1,4 +1,4 @@
-<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="32"><title>Makrologg</title><meta name="theme-color" content="#000000"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><meta name="apple-mobile-web-app-title" content="Makrologg"><link rel="apple-touch-icon" href="apple-touch-icon.png"><link rel="manifest" href="manifest.webmanifest">
+<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="33"><title>Makrologg</title><meta name="theme-color" content="#000000"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><meta name="apple-mobile-web-app-title" content="Makrologg"><link rel="apple-touch-icon" href="apple-touch-icon.png"><link rel="manifest" href="manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
 <style>
@@ -342,6 +342,33 @@ html.lock,html.lock body{overflow:hidden}
 .prow3 .prow{display:flex;justify-content:space-between;align-items:center}
 .stepper.sm button{width:36px;height:36px;font-size:18px}
 .stepper.sm .cv{min-width:36px;font-size:18px}
+.summary .sfoot{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}
+.tchip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:999px;padding:6px 12px;font:inherit;font-size:13px;font-weight:600}
+.tchip svg{width:16px;height:16px}
+.tchip.on{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.water{display:flex;align-items:center;gap:8px;margin-top:10px}
+.water .glasses{display:flex;gap:2px;flex:1;flex-wrap:wrap}
+.water .gl{border:0;background:none;padding:2px 3px;color:var(--surface-2);width:26px;height:30px;flex:0 0 auto}
+.water .gl.on{color:var(--prot)}
+.water .gl svg{width:100%;height:100%}
+.water .wlbl{font-size:12px;color:var(--muted);white-space:nowrap}
+.wline{width:100%;border:0;background:none;font-family:inherit;text-align:left;cursor:pointer;padding:2px 0 0}
+.summary .water,.summary .sfoot{grid-column:1/-1}
+.wline .good{color:var(--ok)} .wline .bad{color:var(--over)}
+.qtools{display:grid!important;grid-template-columns:repeat(3,1fr);gap:8px;overflow:visible}
+.qtool{flex:none!important;flex-direction:column;border-radius:14px!important;padding:10px 6px!important;gap:4px!important;font-size:12px!important}
+.qtool.big{grid-column:1/-1;flex-direction:row;padding:14px!important;font-size:15px!important;background:var(--accent)!important;color:var(--accent-fg)!important;border-color:var(--accent)!important}
+.qtool.big svg{color:var(--accent-fg)!important;width:22px!important;height:22px!important}
+.note.soft{color:var(--muted)}
+.gear{position:relative}
+.gear.badge::after{content:"";position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:var(--warn)}
+.datenav .more{font-size:18px;letter-spacing:1px}
+.wsum{display:flex;flex-direction:column;gap:10px}
+.wsum .gnums{grid-template-columns:repeat(3,1fr);row-gap:10px}
+.hchart{display:flex;flex-direction:column;gap:6px}
+.tabs3{display:flex;gap:6px}
+.tabs3 button{flex:1}
+.wlogrow{display:flex;gap:8px;align-items:center}
 </style>
 
 </head><body><div class="app" id="app">
@@ -355,6 +382,7 @@ html.lock,html.lock body{overflow:hidden}
 </div>
 <nav class="tabs"><div class="in" id="tabs"></div></nav>
 <div id="sheetRoot"></div>
+<input type="file" id="fileBackup" hidden>
 <input type="file" id="fileBarcode" accept="image/*" capture="environment" hidden>
 <input type="file" id="fileLabel" accept="image/*" capture="environment" hidden>
 <input type="file" id="fileMeal" accept="image/*" capture="environment" hidden>
@@ -488,7 +516,7 @@ const mealsDoc = () => S.docs.meals || {kind:"meals",items:{}};
 const hhmm = ts => { const d=new Date(ts); return pad(d.getHours())+":"+pad(d.getMinutes()); };
 function clockOn(k,t){ const [h,m]=String(t||"07:00").split(":").map(Number); const d=parseKey(k); d.setHours(h||0,m||0,0,0); return d.getTime(); }
 function wakeTs(k){ const d=dayDoc(k); return d.wake&&d.wake.at ? d.wake.at : clockOn(k, plan().defaultWake); }
-const isTraining = k => !!(dayDoc(k).train&&dayDoc(k).train.on);
+const isTraining = k => { const t=dayDoc(k).train; if(t&&t.on!=null) return !!t.on; const days=(plan().pre||{}).days||[]; return days.includes((parseKey(k).getDay()+6)%7); };
 function trainTs(k){ const d=dayDoc(k), w=wakeTs(k); let t=clockOn(k,(d.train&&d.train.time)||plan().pre.defaultTime); while(t<w-HOUR) t+=24*HOUR; return t; }
 function daySchedule(k){
   const pl=plan(), w=wakeTs(k), out=[];
@@ -543,7 +571,7 @@ function reminderListFor(person){
       else if(sl.at<lastToday+5*HOUR) continue;
       if(sl.at<now+30000 || hasMeal(d,sl.meal)) continue;
       const tp=tplById(sl.tpl), what=tp?`${tp.name}, ${r0(tplTotals(tp).kcal)} kcal. `:"";
-      const text = sl.meal==="pre" ? `Trening kl ${hhmm(sl.train)}. ${what||"Spis litt nå. "}Husk et glass vann.` : `${what||"Tid for å spise. "}Husk et glass vann.`;
+      const text = sl.meal==="pre" ? `Trening kl ${hhmm(sl.train)}. ${what||"Spis litt nå. "}`.trim() : `${what||"Tid for å spise."}`.trim()+``;
       out.push({id:hashId(person.id+":"+k+":"+sl.meal), at:sl.at, title:`${meal(sl.meal)} kl ${hhmm(sl.at)}${who}`, text, slot:person.id+"|"+sl.meal, day:k});
     }
   }
@@ -804,7 +832,7 @@ const meal = m => MEALS.find(x=>x[0]===m)?.[1] || m;
 function totals(day){ const t={kcal:0,p:0,f:0,c:0}; (day.entries||[]).forEach(e=>{t.kcal+=e.kcal;t.p+=e.p;t.f+=e.f;t.c+=e.c;}); return t; }
 
 /* ---------- rendering ---------- */
-const ICON = {
+const ICON = {dumbbell:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 7v10M18 7v10M3 10v4M21 10v4M6 12h12"/></svg>`,glass:`<svg viewBox="0 0 24 28" aria-hidden="true"><path d="M4 3h16l-2 22H6z" fill="currentColor" opacity=".9"/></svg>`,
  day:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 8 8h-8z" fill="currentColor"/></svg>',
  hist:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 20V11M10 20V5M15 20v-7M20 20V8"/></svg>',
  bolt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3 5 14h6l-1 7 8-11h-6z"/></svg>',
@@ -824,7 +852,8 @@ function render(){
   // tabs
   $("#tabs").innerHTML = [["dag","Dag",ICON.day],["meny","Meny",ICON.pot],["hist","Historikk",ICON.hist],["mal","Kropp",ICON.goal]]
     .map(([k,l,i])=>`<button data-act="tab" data-v="${k}" class="${UI.tab===k?"on":""}">${i}${l}</button>`).join("");
-  $("#datenav").innerHTML = UI.tab==="dag" ? `<button data-act="day" data-v="-1" aria-label="Forrige dag">‹</button><button class="dlabel" data-act="pickDate" aria-label="Velg dato: ${dateLabel(UI.date)}">${dateLabel(UI.date)}</button><button data-act="day" data-v="1" aria-label="Neste dag">›</button>` : "";
+  $("#datenav").innerHTML = UI.tab==="dag" ? `<button data-act="day" data-v="-1" aria-label="Forrige dag">‹</button><button class="dlabel" data-act="pickDate" aria-label="Velg dato: ${dateLabel(UI.date)}">${dateLabel(UI.date)}</button><button data-act="day" data-v="1" aria-label="Neste dag">›</button><button class="more" data-act="dayMenu" aria-label="Mer for dagen">⋯</button>` : "";
+  { const gb=$("#gearBtn"); if(gb) gb.classList.toggle("badge", needBackup()); }
   const gb=$("#gearBtn"); if(gb) gb.classList.toggle("on", UI.tab==="innst"||UI.tab==="tider");
   if(!S.ready){ return; }
   const m=$("#main"), pb=personBar();
@@ -841,6 +870,10 @@ function render(){
 const WEEKDAYS=["søndag","mandag","tirsdag","onsdag","torsdag","fredag","lørdag"];
 function waterState(d){ const ans=d.waterAns||((d.water||0)>0?"ja":null);
   const l=d.waterL!=null?d.waterL:((d.water||0)>0?d.water*0.25:null); return {ans,l}; }
+function waterRow(d){
+  const ws=waterState(d), n=Math.round((ws.l||0)*4), goal=Math.max(1,Math.round(goals().water||8)), N=Math.max(goal,n);
+  return `<div class="water"><div class="glasses" role="group" aria-label="Vann, glass">${Array.from({length:N},(_,i)=>`<button class="gl ${i<n?"on":""}" data-act="glass" data-v="${i+1}" aria-label="${i+1} glass">${ICON.glass}</button>`).join("")}</div><span class="wlbl num">${n}/${goal} glass</span></div>`;
+}
 function addWaterL(d, liters){ const ws=waterState(d); d.waterAns="ja"; d.waterL=Math.round(((ws.l||0)+liters)*100)/100; }
 function lastMeal(k, mk){
   for(let i=1;i<=7;i++){ const k2=addDays(k,-i), es=(dayDoc(k2).entries||[]).filter(e=>e.meal===mk);
@@ -880,11 +913,13 @@ function viewDay(){
       <circle cx="66" cy="66" r="56" fill="none" stroke="${t.kcal>g.kcal*1.10?"var(--over)":over?"var(--warn)":"var(--kcal)"}" stroke-width="12" stroke-linecap="round" stroke-dasharray="${C*frac} ${C}"/></svg>
       <div class="center"><div class="big num">${r0(Math.abs(left))}</div><div class="small">${over?"kcal over":"kcal igjen"}</div></div></div>
     <div class="macros">${macroRow("Protein",t.p,g.p,"var(--prot)")}${macroRow("Karbohydrater",t.c,g.c,"var(--carb)")}${macroRow("Fett",t.f,g.f,"var(--fat)")}</div>
-    <div class="kline"><span>Spist <b class="num">${r0(t.kcal)}</b> kcal</span><span>Mål <b class="num">${r0(g.kcal)}</b> kcal${g.extra?` <span class="num">(+${r0(g.extra)} trening)</span>`:""}</span></div>
+    <div class="kline"><span>Spist <b class="num">${r0(t.kcal)}</b> kcal</span><span>Mål <b class="num">${r0(g.kcal)}</b> kcal</span></div>
     ${weekLine(UI.date)}
+    <div class="sfoot"><button class="tchip ${isTraining(UI.date)?"on":""}" data-act="trainTap" aria-pressed="${isTraining(UI.date)}">${ICON.dumbbell}<span>${isTraining(UI.date)?`Treningsdag +${r0(trainExtra(UI.date))}`:"Treningsdag"}</span></button>
+      ${d.note?`<button class="link sm" data-act="noteOpen">Notat ✎</button>`:""}</div>
   </section>`;
+  h += weekSummaryCard();
   h += goalLine();
-  h += planCard(UI.date);
   h += plannedCard(UI.date);
   if(!(S.docs[pk("profile")])) h += `<section class="card"><div style="font-weight:600;margin-bottom:4px">Sett dine egne mål</div><div class="note" style="margin-bottom:10px">Målene over er standardverdier. Regn ut dine basert på vekt, høyde og aktivitet.</div><button class="btn primary" data-act="tab" data-v="mal">Regn ut mål</button></section>`;
   const yday = dayDoc(addDays(UI.date,-1));
@@ -900,8 +935,8 @@ function viewDay(){
     const copyBtn = last && !sameAlready ? `<button class="btn ghost" data-act="copyY" data-v="${mk}" data-k="${last.k}">${es.length?"+ ":""}Samme som ${last.label} <span class="num">· ${r0(last.kcal)} kcal</span></button>` : "";
     if(!es.length){ const tpE=at[mk]?tplById(at[mk].tpl):null;
       h += `<section class="card meal empty"><h3>${ml}</h3><div class="row">
-        ${tpE?`<button class="btn ghost sm" data-act="logSlotTpl" data-v="${mk}">Fast<small class="num">${r0(tplTotals(tpE).kcal)}</small></button>`:""}
-        ${last?`<button class="btn ghost sm" data-act="copyY" data-v="${mk}" data-k="${last.k}" aria-label="Samme som ${last.label}, ${r0(last.kcal)} kcal">Som ${last.label}<small class="num">${r0(last.kcal)}</small></button>`:""}
+        ${tpE?`<button class="btn ghost sm" data-act="logSlotTpl" data-v="${mk}">${esc(tpE.name.length>14?tpE.name.slice(0,13)+"…":tpE.name)} · <span class="num">${r0(tplTotals(tpE).kcal)} kcal</span></button>`:""}
+        ${last?`<button class="btn ghost sm" data-act="copyY" data-v="${mk}" data-k="${last.k}" aria-label="Samme som ${last.label}, ${r0(last.kcal)} kcal" style="white-space:nowrap">↻ ${last.label[0].toUpperCase()+last.label.slice(1)} · <span class="num">${r0(last.kcal)} kcal</span></button>`:""}
         <button class="btn primary plus" data-act="add" data-v="${mk}" aria-label="Legg til i ${ml.toLowerCase()}">+</button></div></section>`;
       continue; }
     const tp=at[mk]&&!es.length?tplById(at[mk].tpl):null;
@@ -910,19 +945,10 @@ function viewDay(){
     const others=people().list.filter(x=>x.id!==CUR);
     h += `<section class="card meal ${nx&&nx.meal===mk?"next":""} ${open&&es.length?"open":""}"><div class="mh2"><button class="mh" data-act="toggleMeal" data-v="${mk}" ${es.length?`aria-expanded="${open}"`:"disabled"}><span class="mt"><h3>${ml}</h3></span><span class="mr"><span class="mk num">${es.length?r0(kc)+" kcal":""}</span>${es.length?`<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>`:""}</span></button><button class="btn primary plus" data-act="add" data-v="${mk}" aria-label="Legg til i ${ml.toLowerCase()}">+</button></div>
       ${es.length&&!open?`<div class="msum num">${es.length} ${es.length===1?"ting":"ting"} · P ${r0(sm.p)} g · K ${r0(sm.c)} g · F ${r0(sm.f)} g</div>`:""}
-      ${es.length&&open?`<div class="mtools">${last&&!sameAlready?`<button class="link sm" data-act="copyY" data-v="${mk}" data-k="${last.k}">+ Samme som ${last.label} (${r0(last.kcal)} kcal)</button>`:""}${others.length?`<button class="link sm" data-act="copyMeal" data-v="${mk}">Kopier til ${others.length===1?esc(others[0].name):"andre"}</button>`:""}<button class="link sm" data-act="saveAsTpl" data-v="${mk}">Lagre som fast</button></div><ul>${es.map(e=>`<li data-act="editEntry" data-v="${e.id}"><div class="nm"><div>${esc(e.name)}${e.est?'<span class="tag">anslag</span>':""}${e.quick?'<span class="tag">hurtig</span>':""}</div><small class="num">${e.quick?"":r0(e.g)+" g · "}P ${r0(e.p)} · K ${r0(e.c)} · F ${r0(e.f)}</small></div><div class="kc num">${r0(e.kcal)}</div></li>`).join("")}</ul>`:""}
+      ${es.length&&open?`<div class="mtools">${last&&!sameAlready?`<button class="link sm" data-act="copyY" data-v="${mk}" data-k="${last.k}">+ Samme som ${last.label} (${r0(last.kcal)} kcal)</button>`:""}<button class="link sm" data-act="copyMeal" data-v="${mk}" data-k="day">Kopier til annen dag</button>${others.length?`<button class="link sm" data-act="copyMeal" data-v="${mk}">Kopier til ${others.length===1?esc(others[0].name):"andre"}</button>`:""}<button class="link sm" data-act="saveAsTpl" data-v="${mk}">Lagre i Mine måltider</button></div><ul>${es.map(e=>`<li data-act="editEntry" data-v="${e.id}"><div class="nm"><div>${esc(e.name)}${e.est?'<span class="tag">anslag</span>':""}${e.quick?'<span class="tag">hurtig</span>':""}</div><small class="num">${e.quick?"":r0(e.g)+" g · "}P ${r0(e.p)} · K ${r0(e.c)} · F ${r0(e.f)}</small></div><div class="kc num">${r0(e.kcal)}</div></li>`).join("")}</ul>`:""}
       </section>`;
   }
-  { const oth=people().list.filter(x=>x.id!==CUR); if(oth.length&&(d.entries||[]).length)
-    h += `<div style="text-align:center;margin:-2px 0 4px"><button class="link sm" data-act="copyMeal" data-v="*">Kopier hele dagen til ${oth.length===1?esc(oth[0].name):"andre"}</button></div>`; }
-  const ws=waterState(d);
-  h += `<section class="card wq"><div class="prow"><b>Drukket vann${UI.date===todayKey()?" i dag":""}?</b>
-      <div class="seg" role="group" aria-label="Drukket vann"><button data-act="waterAns" data-v="ja" class="${ws.ans==="ja"?"on":""}">Ja</button><button data-act="waterAns" data-v="nei" class="${ws.ans==="nei"?"on":""}">Nei</button></div></div>
-    ${ws.ans==="ja"?`<div class="row"><label for="waterL" class="note">Hvor mye?</label><input class="inp num" id="waterL" inputmode="decimal" value="${ws.l!=null?fmt1(ws.l):""}" placeholder="valgfritt" style="width:96px;padding:8px 10px"><span class="note">liter</span><button class="btn sm" data-act="waterSave">Lagre</button></div>`:""}
-  </section>`;
-  h += (d.note||UI.noteOpen) ? `<section class="card notecard"><label for="dayNote" class="flabel">Notat for dagen</label><textarea class="inp" id="dayNote" rows="2" placeholder="F.eks. syk, bursdag, reise">${esc(d.note||"")}</textarea></section>`
-    : `<div style="text-align:center"><button class="link sm" data-act="noteOpen">+ Notat for dagen</button></div>`;
-  h += backupCard();
+  if(d.note||UI.noteOpen) h += `<section class="card notecard"><label for="dayNote" class="flabel">Notat for dagen</label><textarea class="inp" id="dayNote" rows="2" placeholder="F.eks. syk, bursdag, reise">${esc(d.note||"")}</textarea></section>`;
   return h;
 }
 /* Weekly budget (Monday–Sunday): what the logged days before this one saved or overspent against their goals,
@@ -936,8 +962,12 @@ function weekBudget(k){
   return {bank, perDay, left, budget};
 }
 function weekLine(k){
-  const w=weekBudget(k); if(Math.abs(w.bank)<1 && (parseKey(k).getDay()+6)%7===0) return `<div class="wline"><span>Uka (man–søn)</span><span>Budsjett <b class="num">${r0(w.budget).toLocaleString("nb-NO")}</b> kcal</span></div>`;
-  return `<div class="wline"><span>Uka: ${w.bank>=0?`<b class="num good">${r0(w.bank)}</b> kcal spart`:`<b class="num bad">${r0(-w.bank)}</b> kcal over`}</span><span>Resten av uka ≈ <b class="num">${r0(w.perDay)}</b>/dag</span></div>`;
+  const w=weekBudget(k), g=goalsFor(k).kcal, wd=(parseKey(k).getDay()+6)%7, bud=r0(w.budget).toLocaleString("nb-NO");
+  if(Math.abs(w.bank)<1 && wd===0) return `<button class="wline" data-act="weekInfo"><span>Uka (man–søn)</span><span>Ukemål <b class="num">${bud}</b> kcal</span></button>`;
+  const right = w.bank>=0 ? `<span class="good">Du holder ukemålet</span>`
+    : w.perDay>=g*0.85 ? `<span>For å ta det igjen: ≈ <b class="num">${r0(w.perDay)}</b>/dag</span>`
+    : `<span>Ta det igjen litt etter litt</span>`;
+  return `<button class="wline" data-act="weekInfo"><span>Uka: ${w.bank>=0?`<b class="num good">${r0(w.bank).toLocaleString("nb-NO")}</b> kcal under`:`<b class="num bad">${r0(-w.bank).toLocaleString("nb-NO")}</b> kcal over`}</span>${right}</button>`;
 }
 function garminCard(k){
   const gm=(morningDoc().items||{})[k]||{}, open=!!UI.gmOpen;
@@ -953,6 +983,34 @@ function garminCard(k){
     <div class="field"><label for="gmStress">Stress (snitt)</label><input class="inp num" id="gmStress" inputmode="numeric" value="${esc(gm.stress??"")}" placeholder="0–100"></div></div>
     <div class="field"><label for="gmNote">Notat</label><input class="inp" id="gmNote" value="${esc(gm.note||"")}" placeholder="Energi, sårhet, sult …"></div>
     <button class="btn primary block" data-act="logGarmin">Lagre</button>`:""}</section>`;
+}
+function setTrain(k,on,x){ const d=clone(dayDoc(k)); d.kind="day"; d.date=k; d.train=Object.assign({},d.train,{on,time:(d.train&&d.train.time)||plan().pre.defaultTime}); if(x!=null) d.train.extra=x; writeDoc(pk("day-")+k,d); toast(on?`Treningsdag: +${r0(x!=null?x:trainExtra(k))} kcal`:"Ikke treningsdag"); }
+function weekKeyOf(k){ return addDays(k,-((parseKey(k).getDay()+6)%7)); }
+function weekSummaryCard(){
+  const t=todayKey(); if(UI.date!==t||parseKey(t).getDay()!==0) return "";
+  if(((S.docs.settings||{}).wsumHidden)===weekKeyOf(t)) return "";
+  const mon=weekKeyOf(t), ks=Array.from({length:7},(_,i)=>addDays(mon,i)), lg=ks.filter(k=>{ const d=S.docs[pk("day-")+k]; return d&&totals(d).kcal>0; });
+  if(lg.length<2) return "";
+  const av=f=>lg.reduce((a,k)=>a+totals(dayDoc(k))[f],0)/lg.length, avg=lg.reduce((a,k)=>a+goalsFor(k).kcal,0)/lg.length, pHit=lg.filter(k=>totals(dayDoc(k)).p>=goalsFor(k).p*0.95).length, ok=lg.filter(k=>dayClass(k)==="ok").length;
+  const ws=Object.entries(weightsDoc().items||{}).sort((a,b)=>a[0]<b[0]?-1:1), inW=ws.filter(([k])=>k>=mon&&k<=t), before=ws.filter(([k])=>k<mon).pop();
+  const startW=before?before[1]:(inW[0]||[])[1], endW=(inW[inW.length-1]||[])[1], dw=startW!=null&&endW!=null&&inW.length?endW-startW:null;
+  const mt=maintKcal(), bal=mt?lg.reduce((a,k)=>a+totals(dayDoc(k)).kcal-mt,0):null;
+  const sg=x=>(x>0?"+":x<0?"−":"")+fmt1(Math.abs(x));
+  return `<section class="card wsum"><div class="prow"><b>Uka di · ${shortDate(mon)}–${shortDate(t)}</b><button class="link sm" data-act="wsumHide">Skjul</button></div>
+    <div class="gnums"><div><b class="num">${r0(av("kcal"))}</b><span>snitt kcal (mål ${r0(avg)})</span></div><div><b class="num">${r0(av("p"))} g</b><span>snitt protein</span></div><div><b class="num">${lg.length}/7</b><span>dager logget</span></div>
+      <div><b class="num">${ok}</b><span>innenfor målet</span></div><div><b class="num">${pHit}</b><span>med proteinmål</span></div><div><b class="num">${dw==null?"–":sg(dw)+" kg"}</b><span>vekt</span></div></div>
+    ${bal!=null?`<div class="note num">Kaloribalanse: ${bal<0?"−":"+"}${r0(Math.abs(bal)).toLocaleString("nb-NO")} kcal, som tilsvarer ca. ${sg(bal/7700)} kg.</div>`:""}
+    <button class="btn ghost block" data-act="tab" data-v="hist">Se Historikk</button></section>`;
+}
+function needBackup(){ if(hhState()) return false; const b=backupInfo(), nDays=Object.keys(S.docs).filter(k=>/(^|:)day-/.test(k)).length; return nDays>=5&&Date.now()>=b.snooze&&(b.days==null||b.days>=14); }
+function sheetDayMenu(){
+  const d=dayDoc(UI.date), oth=people().list.filter(x=>x.id!==CUR), has=(d.entries||[]).length;
+  return `<div class="list setnav">
+    <button data-act="noteOpen"><span class="nm">${d.note?"Endre notat":"Notat for dagen"}<small>${d.note?esc(d.note):"F.eks. syk, bursdag, reise"}</small></span><span aria-hidden="true">›</span></button>
+    ${has?`<button data-act="copyMeal" data-v="*" data-k="day"><span class="nm">Kopier dagen til en annen dag<small>Alt du har logget ${UI.date===todayKey()?"i dag":dateLabel(UI.date).toLowerCase()}</small></span><span aria-hidden="true">›</span></button>`:""}
+    ${has&&oth.length?`<button data-act="copyMeal" data-v="*"><span class="nm">Kopier dagen til ${oth.length===1?esc(oth[0].name):"andre"}<small>Med valgfri andel av mengdene</small></span><span aria-hidden="true">›</span></button>`:""}
+    <button data-act="trainTap" data-k="sheet"><span class="nm">Trening<small>${isTraining(UI.date)?`Treningsdag, +${r0(trainExtra(UI.date))} kcal`:"Ikke treningsdag"}</small></span><span aria-hidden="true">›</span></button>
+  </div>`;
 }
 function backupInfo(){ const st=S.docs.settings||{}; const last=st.lastBackup||0; const days=last?Math.floor((Date.now()-last)/864e5):null; return {last,days,snooze:st.backupSnooze||0}; }
 function backupCard(){
@@ -1003,33 +1061,34 @@ function timeSettings(){
   h+=`<div class="sect">Påminnelser</div><section class="card" style="display:flex;flex-direction:column;gap:10px">`;
   if(canRemind()){
     h+=`<label class="tgl"><input type="checkbox" id="plRem" data-pl ${pl.reminders?"checked":""}><span>Varsle meg når det er tid for å spise</span></label>
-      <div class="note">Av som standard. Slår du det på, får du et varsel ved hvert måltid, med påminnelse om vann.</div>
+      <div class="note">Av som standard. Slår du det på, får du et varsel ved hvert måltid.</div>
       ${pl.reminders&&st!=="granted"?`<div class="note err">Varsler er slått av for Makrologg i telefonens innstillinger.</div><button class="btn ghost block" data-act="notifSettings">Åpne varselinnstillinger</button>`:""}
       ${pl.reminders&&sch.length?`<div class="note num">I dag: ${sch.map(x=>`${meal(x.meal)} ${hhmm(x.at)}`).join(" · ")}</div>`:""}`;
   } else h+=`<div class="note">Påminnelser krever den nyeste versjonen av appen.</div>`;
   return h+`</section>`;
 }
 
-function viewPlan(){
-  const pl=plan(), tpls=Object.values(mealsDoc().items||{}).sort((a,b)=>a.name.localeCompare(b.name,"nb"));
-  const tplOpts = sel => `<option value="">Ingen fast</option>`+tpls.map(t=>`<option value="${t.id}" ${sel===t.id?"selected":""}>${esc(t.name)}</option>`).join("");
-  const offOpts = sel => Array.from({length:37},(_,i)=>i*30).map(m=>`<option value="${m}" ${Number(sel)===m?"selected":""}>${m===0?"Med en gang":"+ "+fmtDur(m*60000)}</option>`).join("");
-  const preOpts = sel => [30,45,60,75,90,105,120,150,180].map(m=>`<option value="${m}" ${Number(sel)===m?"selected":""}>${fmtDur(m*60000)} før</option>`).join("");
-  const today=todayKey(), sch=daySchedule(today), st=notifState();
-  let h=`<div class="sect">Faste måltider</div>`;
-  h+= tpls.length?`<div class="list">${tpls.map(t=>{const tt=tplTotals(t);return `<button data-act="editTpl" data-v="${t.id}"><span class="nm">${esc(t.name)}<br><small class="num">${t.items.length} ting · ${r0(tt.kcal)} kcal · P ${fmt1(tt.p)} · K ${fmt1(tt.c)} · F ${fmt1(tt.f)}</small></span></button>`}).join("")}</div>`
-    :`<section class="card note">Lagre måltider du ofte spiser, og logg dem med ett trykk. Du kan også trykke «Lagre som fast» på et måltid du har logget.</section>`;
-  h+=`<button class="btn ghost block" data-act="newTpl">+ Nytt fast måltid</button>`;
-  h+=`<div class="sect">Treningsdager</div><section class="card" style="display:flex;flex-direction:column;gap:12px">
-    <div class="note">Huk av «Treningsdag» på dagssiden, så får du et pre-workout-måltid og høyere kalorimål den dagen. Du kan endre de ekstra kaloriene for hver dag der.${multi()?` Innstillingene gjelder ${esc(personOf(CUR).name)}.`:""}</div>
-    <div class="grid2"><div class="field"><label for="plPre">Pre-workout</label><select class="inp" id="plPre" data-pl>${preOpts(pl.pre.before)}</select></div>
-    <div class="field"><label for="plExtra">Ekstra kcal (standard)</label><input class="inp num" id="plExtra" data-pl inputmode="numeric" value="${r0(pl.pre.extraKcal)}"></div>
-    <div class="field"><label for="plTrain">Vanlig treningstid</label><input class="inp num" type="time" id="plTrain" data-pl value="${esc(pl.pre.defaultTime)}"></div>
-    <div class="field"><label for="plPreTpl">Fast pre-workout</label><select class="inp" id="plPreTpl" data-pl>${tplOpts(pl.pre.tpl)}</select></div></div>
-    <div class="note">De ekstra kaloriene legges på karbohydratene. Proteinmålet er det samme hver dag.</div></section>`;
+function viewMyMeals(){
+  const tpls=Object.values(mealsDoc().items||{}).sort((a,b)=>a.name.localeCompare(b.name,"nb")), ds=Object.values(foodsDoc().items||{}).filter(f=>f.dish&&f.per).sort((a,b)=>a.name.localeCompare(b.name,"nb"));
+  let h=`<div class="note" style="margin-bottom:10px">Måltider du ofte spiser. Faste måltider logges med ett trykk. Retter fra Mealprep logges i porsjoner.</div>`;
+  h+= tpls.length||ds.length?`<div class="list">${tpls.map(t=>{const tt=tplTotals(t);return `<button data-act="editTpl" data-v="${t.id}"><span class="nm">${esc(t.name)}<br><small class="num">Fast måltid · ${t.items.length} ting · ${r0(tt.kcal)} kcal · P ${r0(tt.p)}</small></span><span aria-hidden="true">›</span></button>`}).join("")}${ds.map(f=>`<button data-act="editPrep" data-v="${esc(f.id)}"><span class="nm">${esc(f.name)}<br><small class="num">Rett · ${f.dish.servings?`${fmt1(f.dish.servings)} porsjoner · ${r0(calc(f.per,f.portion.g).kcal)} kcal per porsjon`:`${r0(f.per.kcal)} kcal per 100 g`}</small></span><span aria-hidden="true">›</span></button>`).join("")}</div>`
+    :`<section class="card note">Lagre måltider du ofte spiser, og logg dem med ett trykk. Du kan også trykke «Lagre i Mine måltider» på et måltid du har logget.</section>`;
+  h+=`<button class="btn ghost block" data-act="newTpl" style="margin-top:10px">+ Nytt fast måltid</button><button class="btn ghost block" data-act="newPrep">+ Ny rett med porsjoner</button>`;
   return h;
 }
-
+function viewPlan(){
+  const pl=plan(), tpls=Object.values(mealsDoc().items||{}).sort((a,b)=>a.name.localeCompare(b.name,"nb")), days=pl.pre.days||[];
+  const tplOpts = sel => `<option value="">Ingen fast</option>`+tpls.map(t=>`<option value="${t.id}" ${sel===t.id?"selected":""}>${esc(t.name)}</option>`).join("");
+  const preOpts = sel => [30,45,60,75,90,105,120,150,180].map(m=>`<option value="${m}" ${Number(sel)===m?"selected":""}>${fmtDur(m*60000)} før</option>`).join("");
+  return `<section class="card" style="display:flex;flex-direction:column;gap:12px">
+    <div class="field"><span class="flabel">Faste treningsdager</span><div class="row" style="gap:6px">${["Ma","Ti","On","To","Fr","Lø","Sø"].map((x,i)=>`<button class="chip ${days.includes(i)?"on":""}" data-act="trainDay" data-v="${i}">${x}</button>`).join("")}</div>
+      <div class="note">Disse dagene blir treningsdager av seg selv. Du kan alltid slå det av eller på for én dag med «Treningsdag»-knappen på Dag.</div></div>
+    <div class="grid2"><div class="field"><label for="plExtra">Ekstra kcal (standard)</label><input class="inp num" id="plExtra" data-pl inputmode="numeric" value="${r0(pl.pre.extraKcal)}"></div>
+    <div class="field"><label for="plTrain">Vanlig treningstid</label><input class="inp num" type="time" id="plTrain" data-pl value="${esc(pl.pre.defaultTime)}"></div>
+    <div class="field"><label for="plPre">Pre-workout</label><select class="inp" id="plPre" data-pl>${preOpts(pl.pre.before)}</select></div>
+    <div class="field"><label for="plPreTpl">Fast pre-workout</label><select class="inp" id="plPreTpl" data-pl>${tplOpts(pl.pre.tpl)}</select></div></div>
+    <div class="note">De ekstra kaloriene legges på karbohydratene. Proteinmålet er det samme hver dag.${multi()?` Innstillingene gjelder ${esc(personOf(CUR).name)}.`:""}</div></section>`;
+}
 function macroPreview(v){ return `<div class="preview num"><div><b>${r0(v.kcal)}</b><span>kcal</span></div><div><b style="color:var(--prot)">${fmt1(v.p)}</b><span>protein</span></div><div><b style="color:var(--carb)">${fmt1(v.c)}</b><span>karbo</span></div><div><b style="color:var(--fat)">${fmt1(v.f)}</b><span>fett</span></div></div>`; }
 
 function sheetPerson(s){
@@ -1056,12 +1115,30 @@ function logForOthers(s, makeEntry){
   return names;
 }
 
+function sheetWeekInfo(){
+  const k=UI.date, w=weekBudget(k), wd=(parseKey(k).getDay()+6)%7, mon=addDays(k,-wd);
+  return `<div class="note">Ukemålet er summen av dagsmålene fra mandag til søndag. Dager uten logget mat regnes som «på målet».</div>
+   <table class="mtab num"><tr><td>Ukemål (man–søn)</td><td><b>${r0(w.budget).toLocaleString("nb-NO")}</b></td></tr>
+   <tr><td>${wd?`Mandag–${WEEKDAYS[parseKey(addDays(k,-1)).getDay()]}`:"Før i dag"}</td><td>${w.bank>=0?r0(w.bank).toLocaleString("nb-NO")+" under":r0(-w.bank).toLocaleString("nb-NO")+" over"}</td></tr>
+   <tr><td>Dager igjen inkludert i dag</td><td>${w.left}</td></tr></table>
+   <div class="note">${w.bank>=0?"Har du spist mindre enn målet, er det bare bra hvis du vil ned i vekt. Appen foreslår ikke at du skal spise det opp.":"Er du over, er det lurt å ta det igjen litt etter litt. Kutt aldri mer enn ca. 15 % under dagsmålet."}</div>`;
+}
+function sheetTrain(){
+  const k=UI.date, on=isTraining(k);
+  return `<label class="tgl"><input type="checkbox" id="trSheetOn" ${on?"checked":""}><span>Treningsdag ${k===todayKey()?"i dag":dateLabel(k).toLowerCase()}</span></label>
+   <div class="field"><label for="trSheetX">Ekstra kalorier denne dagen</label><input class="inp num" id="trSheetX" inputmode="numeric" value="${r0(trainExtra(k))}"></div>
+   <div class="note">Ekstrakaloriene legges på karbohydratene. Faste treningsdager og standardverdi stiller du inn under Innstillinger → Trening.</div>
+   <button class="btn primary block" data-act="trainSave">Lagre</button>`;
+}
 function sheetCopyMeal(s){
-  const others=people().list.filter(x=>x.id!==CUR), es=(dayDoc(UI.date).entries||[]).filter(e=>s.mk==="*"||e.meal===s.mk), kc=es.reduce((a,e)=>a+e.kcal,0);
-  return `<div class="note">${es.length} ting, ${r0(kc)} kcal. Mengdene kan endres etterpå hos hver person.</div>
-   ${others.length>1?`<div class="whos">${others.map(p=>`<div class="who"><label class="tgl"><input type="checkbox" data-cm="${p.id}" ${s.to[p.id]?"checked":""}><span class="dot" style="background:${pcolor(p)}"></span><span>${esc(p.name)}</span></label></div>`).join("")}</div>`:""}
-   <div class="field"><span class="flabel">Andel av dine mengder</span><div class="row">${[100,75,50,25].map(x=>`<button class="chip ${s.pct===x?"on":""}" data-act="cmPct" data-v="${x}">${x} %</button>`).join("")}</div></div>
-   <div class="note num">Det blir ${r0(kc*(s.pct||100)/100)} kcal${others.length>1?" per person":` for ${esc(others[0]?others[0].name:"")}`}.</div>
+  const ppl=people().list, es=(dayDoc(UI.date).entries||[]).filter(e=>s.mk==="*"||e.meal===s.mk), kc=es.reduce((a,e)=>a+e.kcal,0), n=Object.values(s.to).filter(Boolean).length;
+  const dayOpts=()=>{ let o=""; for(let i=-7;i<=14;i++){ const k=addDays(todayKey(),i); o+=`<option value="${k}" ${k===s.date?"selected":""}>${i===0?"I dag":i===1?"I morgen":i===-1?"I går":dateLabel(k)}</option>`; } return o; };
+  return `<div class="note">${s.mk==="*"?"Hele dagen":meal(s.mk)}: ${es.length} ting, ${r0(kc)} kcal.</div>
+   <div class="grid2"><div class="field"><label for="cmDate">Til dag</label><select class="inp" id="cmDate">${dayOpts()}</select></div>
+   ${s.mk==="*"?`<div class="field"><span class="flabel">Til måltid</span><div class="note" style="padding-top:10px">Samme måltider</div></div>`:`<div class="field"><label for="cmMeal">Til måltid</label><select class="inp" id="cmMeal">${MEALS.map(([k,l])=>`<option value="${k}" ${k===s.toMeal?"selected":""}>${l}</option>`).join("")}</select></div>`}</div>
+   ${ppl.length>1?`<div class="field"><span class="flabel">Til hvem</span><div class="whos">${ppl.map(p=>`<div class="who"><label class="tgl"><input type="checkbox" data-cm="${p.id}" ${s.to[p.id]?"checked":""}><span class="dot" style="background:${pcolor(p)}"></span><span>${esc(p.name)}${p.id===CUR?" (deg)":""}</span></label></div>`).join("")}</div></div>`:""}
+   <div class="field"><span class="flabel">Andel av mengdene</span><div class="row">${[100,75,50,25].map(x=>`<button class="chip ${s.pct===x?"on":""}" data-act="cmPct" data-v="${x}">${x} %</button>`).join("")}</div></div>
+   <div class="note num">Det blir ${r0(kc*(s.pct||100)/100)} kcal${n>1?" per person":""}.</div>
    <button class="btn primary block" data-act="copyMealDo">Kopier</button>`;
 }
 function sheetWeight(s){
@@ -1100,12 +1177,10 @@ function sheetSlot(s){
   if(tp){
     h+=`<section class="card" style="display:flex;flex-direction:column;gap:8px"><div style="font-weight:600;font-size:16px">${esc(tp.name)}</div>
       <div class="note">${tp.items.map(i=>`${esc(i.name)} (${r0(i.g)} g)`).join(", ")}</div>${macroPreview(tplTotals(tp))}</section>
-      <label class="checkrow"><input type="checkbox" id="slotWater" checked><span class="nm">Logg også ett glass vann</span></label>
       <button class="btn primary block" data-act="slotLog">Logg «${esc(tp.name)}»</button>
       <button class="btn ghost block" data-act="slotOther">Velg noe annet</button>`;
   } else {
     h+=`<button class="btn primary block" data-act="slotOther">Legg til mat</button>
-      <button class="btn ghost block" data-act="slotWaterOnly">Logg ett glass vann</button>
       <div class="note">Tips: Velg et fast måltid for ${esc(meal(s.slot).toLowerCase())} under Innstillinger (tannhjulet), så kan du logge det med ett trykk.</div>`;
   }
   return h;
@@ -1144,7 +1219,7 @@ function sheetDish(){
    <details ${numIn(t.cooked)>0?"open":""}><summary class="note" style="cursor:pointer">Vil du heller veie porsjonene? Legg inn vekta på ferdig rett</summary>
      <div class="field" style="margin-top:8px"><label for="dishCooked">Vekt på ferdig rett (gram)</label><input class="inp num" id="dishCooked" inputmode="decimal" value="${esc(t.cooked??"")}" placeholder="${t.items.length?r0(tot.g)+" (summen av ingrediensene)":"gram"}"></div>
      <div class="note">Vei gryta med maten og trekk fra vekta på den tomme gryta. Da kan du også logge i gram.</div></details>
-   ${t.prep?`<label class="tgl"><input type="checkbox" id="prepSave" ${t.save?"checked":""}><span>Lagre oppskriften til senere</span></label>
+   ${t.prep?`<label class="tgl"><input type="checkbox" id="prepSave" ${t.save?"checked":""}><span>Lagre i Mine måltider</span></label>
      <button class="btn primary block" data-act="prepNext">Fordel porsjonene</button>`
     :`<button class="btn primary block" data-act="dishSave">Lagre rett</button>`}
    ${t.id&&foodsDoc().items&&foodsDoc().items[t.id]?`<button class="btn danger block" data-act="dishRemove">Slett ${t.prep?"oppskriften":"retten"}</button>`:""}`;
@@ -1191,7 +1266,7 @@ function mealprepCard(){
     ${bs.length?`<div class="list">${bs.map(b=>`<button data-act="prepOpen" data-v="${b.id}"><span class="nm">${esc(b.name)}<br><small class="num">${fmt1(b.left)} av ${fmt1(b.servings)} porsjoner igjen · ${r0(pk1(b).kcal)} kcal · P ${r0(pk1(b).p)} per porsjon</small></span><span class="note">Fordel ›</span></button>`).join("")}</div>`
       :`<div class="note">Legg inn ingrediensene, velg hvor mange porsjoner det blir, og fordel porsjonene på dager og personer.</div>`}
     <button class="btn primary block" data-act="newPrep">+ Ny mealprep</button>
-    ${ds.length?`<button class="link sm" data-act="allPrep">${UI.allPrep?"Skjul lagrede oppskrifter":`Lagrede oppskrifter (${ds.length})`}</button>
+    ${ds.length?`<button class="link sm" data-act="allPrep">${UI.allPrep?"Skjul Mine måltider":`Mine måltider (${ds.length})`}</button>
       ${UI.allPrep?`<div class="list">${ds.map(f=>`<button data-act="editPrep" data-v="${esc(f.id)}"><span class="nm">${esc(f.name)}<br><small class="num">${f.dish.servings?`${fmt1(f.dish.servings)} porsjoner · ${r0(calc(f.per,f.portion.g).kcal)} kcal per porsjon`:`${r0(f.per.kcal)} kcal per 100 g`}</small></span><span aria-hidden="true">›</span></button>`).join("")}</div>`:""}`:""}
    </section>`;
 }
@@ -1341,6 +1416,14 @@ function maintKcal(){
   if(!w||!h||!age) return null;
   return (10*w+6.25*h-5*age+(b.sex==="k"?-161:5))*act;
 }
+function goalDir(){ const prof=S.docs[pk("profile")]||{}, gb=numIn((prof.body||{}).goal);
+  if(prof.targetWeight){ const ws=Object.values(weightsDoc().items||{}); const lw=ws.length?Object.entries(weightsDoc().items).sort((a,b)=>a[0]<b[0]?-1:1).pop()[1]:null; if(lw!=null&&Math.abs(lw-prof.targetWeight)>=0.3) return lw>prof.targetWeight?-1:1; }
+  return gb<0?-1:gb>0?1:0; }
+function dayClass(k){ const doc=S.docs[pk("day-")+k], tt=doc?totals(doc):null; if(!tt||!(tt.kcal>0)) return "";
+  const r=tt.kcal/(goalsFor(k).kcal||1), dir=goalDir();
+  if(r>1.10) return "ov"; if(r>1.02) return dir>0?"ok":"wn";
+  if(r<0.9) return dir<0?"ok":"lo"; return "ok"; }
+function streak(){ let k=todayKey(), n=0; if(!dayClass(k)) k=addDays(k,-1); for(let i=0;i<400;i++){ if(dayClass(k)!=="ok") break; n++; k=addDays(k,-1); } return n; }
 function calendarCard(){
   const t=todayKey(), m0=UI.calMonth||t.slice(0,7)+"-01", d0=parseKey(m0), y=d0.getFullYear(), mo=d0.getMonth();
   const first=new Date(y,mo,1), lastDay=new Date(y,mo+1,0).getDate(), lead=(first.getDay()+6)%7;
@@ -1348,42 +1431,46 @@ function calendarCard(){
   let nOk=0,nLog=0;
   for(let dd=1; dd<=lastDay; dd++){ const k=`${y}-${String(mo+1).padStart(2,"0")}-${String(dd).padStart(2,"0")}`, doc=S.docs[pk("day-")+k];
     const tt=doc?totals(doc):null, g=goalsFor(k); let cls="";
-    if(k>t) cls="fut"; else if(tt&&tt.kcal>0){ nLog++; const r=tt.kcal/(g.kcal||1); cls = r>1.10?"ov":r>1.02?"wn":r<0.8?"lo":"ok"; if(cls==="ok") nOk++; }
+    if(k>t) cls="fut"; else if(tt&&tt.kcal>0){ nLog++; cls=dayClass(k); if(cls==="ok") nOk++; }
     cells+=`<button class="${cls} ${k===t?"td":""}" data-act="openDay" data-v="${k}" ${k>t?"disabled":""} aria-label="${dateLabel(k)}">${dd}${doc&&doc.note?"<i></i>":""}</button>`; }
   const prevM=new Date(y,mo-1,1), nextM=new Date(y,mo+1,1), key=x=>`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,"0")}-01`;
   return `<div class="sect">Måned</div><section class="card">
     <div class="weekhd" style="margin-bottom:8px"><button data-act="calMonth" data-v="${key(prevM)}" aria-label="Forrige måned">‹</button><span class="lbl">${["Januar","Februar","Mars","April","Mai","Juni","Juli","August","September","Oktober","November","Desember"][mo]} ${y}</span><button data-act="calMonth" data-v="${key(nextM)}" ${key(nextM)>t?"disabled":""} aria-label="Neste måned">›</button></div>
     <div class="cal">${["Ma","Ti","On","To","Fr","Lø","Sø"].map(x=>`<span class="wd">${x}</span>`).join("")}${cells}</div>
-    <div class="callg"><span><i style="background:var(--accent)"></i>På målet</span><span><i style="background:var(--warn)"></i>Litt over</span><span><i style="background:var(--over)"></i>Over 10 %</span><span><i style="border:1.5px solid var(--accent)"></i>Under 80 %</span><span>• notat</span></div>
-    <div class="note num" style="margin-top:6px">${nLog} dager logget, ${nOk} på målet.</div></section>`;
+    <div class="callg">${goalDir()<0?`<span><i style="background:var(--accent)"></i>På eller under målet</span><span><i style="background:var(--warn)"></i>Litt over</span>`:goalDir()>0?`<span><i style="background:var(--accent)"></i>På eller over målet</span><span><i style="border:1.5px solid var(--accent)"></i>Under målet</span>`:`<span><i style="background:var(--accent)"></i>På målet (±10 %)</span><span><i style="background:var(--warn)"></i>Litt over</span><span><i style="border:1.5px solid var(--accent)"></i>Under målet</span>`}<span><i style="background:var(--over)"></i>Over 10 %</span><span>• notat</span></div>
+    <div class="note num" style="margin-top:6px">${nLog} dager logget, ${nOk} innenfor målet.${(()=>{ const n=streak(); return n>=2?` <b>${n} dager på rad</b> innenfor målet.`:""; })()}</div></section>`;
+}
+function histCharts(wAll){
+  const t=todayKey(), N=UI.histN||14, base=goals(), days=[];
+  for(let i=N-1;i>=0;i--){ const k=addDays(t,-i), d=S.docs[pk("day-")+k], tt=d?totals(d):null, g=goalsFor(k);
+    days.push({k,t:tt,g,hit:!!(tt&&tt.kcal>0&&tt.p>=g.p*0.95)}); }
+  const W=340,H=170,pl=34,pr=8,pb=20,pt=10, kmax=Math.max(base.kcal*1.25,...days.map(x=>x.t?x.t.kcal:0)), bw=(W-pl-pr)/N, y=v=>pt+(H-pt-pb)*(1-v/kmax);
+  const gap=N>30?1:N>14?2:4, step=N>30?15:N>14?5:2;
+  let cols="", labels="";
+  days.forEach((x,i)=>{ const v=x.t?x.t.kcal:0, X=pl+i*bw+gap/2, cx=pl+i*bw+bw/2;
+    if(v>0) cols+=`<rect x="${X.toFixed(1)}" y="${y(v).toFixed(1)}" width="${Math.max(1,bw-gap).toFixed(1)}" height="${(y(0)-y(v)).toFixed(1)}" rx="${N>30?1:3}" fill="${v>x.g.kcal*1.10?"var(--over)":x.hit?"var(--accent)":"var(--bar)"}"/>`;
+    cols+=`<rect x="${(pl+i*bw).toFixed(1)}" y="${pt}" width="${bw.toFixed(1)}" height="${H-pt}" fill="transparent" data-act="openDay" data-v="${x.k}" style="cursor:pointer"><title>${dateLabel(x.k)}</title></rect>`;
+    if((N-1-i)%step===0){ const d=parseKey(x.k); labels+=`<text x="${cx.toFixed(1)}" y="${H-5}" text-anchor="middle" font-size="9" fill="var(--muted)">${d.getDate()}.${d.getMonth()+1}</text>`; } });
+  const ticks=[0,Math.round(kmax/2/100)*100,Math.round(kmax*0.95/100)*100].map(v=>`<line x1="${pl}" x2="${W-pr}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" stroke="var(--line)"/><text x="${pl-4}" y="${(y(v)+3).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--muted)">${v}</text>`).join("");
+  const gl=`<line x1="${pl}" x2="${W-pr}" y1="${y(base.kcal).toFixed(1)}" y2="${y(base.kcal).toFixed(1)}" stroke="var(--fg)" stroke-dasharray="4 3" opacity=".55"/>`;
+  const wIn=wAll.filter(([k])=>k>=days[0].k&&k<=t); let wsvg="";
+  if(wIn.length>=2){ const vs=wIn.map(x=>x[1]), mn=Math.min(...vs)-0.3, mx=Math.max(...vs)+0.3, Hh=110, yw=v=>pt+(Hh-pt-pb)*(1-(v-mn)/(mx-mn)), xw=k=>pl+(days.findIndex(x=>x.k===k)+0.5)*bw;
+    const pts=wIn.map(([k,v])=>[xw(k),yw(v)]);
+    wsvg=`<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="Vekt">${[mx-0.3,mn+0.3].map(v=>`<line x1="${pl}" x2="${W-pr}" y1="${yw(v).toFixed(1)}" y2="${yw(v).toFixed(1)}" stroke="var(--line)"/><text x="${pl-4}" y="${(yw(v)+3).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--muted)">${fmt1(v)}</text>`).join("")}
+      <polyline points="${pts.map(q=>q.map(n=>n.toFixed(1)).join(",")).join(" ")}" fill="none" stroke="var(--fg)" stroke-width="2" stroke-linejoin="round"/>${pts.map((q,i)=>`<circle cx="${q[0].toFixed(1)}" cy="${q[1].toFixed(1)}" r="${i===pts.length-1?3.6:2.4}" fill="var(--fg)"/>`).join("")}
+      <text x="${pl}" y="${Hh-5}" font-size="9" fill="var(--muted)">${(()=>{const d=parseKey(wIn[0][0]);return d.getDate()+". "+MON[d.getMonth()];})()}</text><text x="${W-pr}" y="${Hh-5}" text-anchor="end" font-size="9" fill="var(--muted)">${fmt1(vs[vs.length-1])} kg</text></svg>`; }
+  return `<div class="tabs3 seg" role="group" aria-label="Periode" style="margin:6px 0 10px">${[14,30,90].map(n=>`<button class="${N===n?"on":""}" data-act="histN" data-v="${n}">${n} dager</button>`).join("")}</div>
+   <div class="sect">Kalorier</div><section class="card hist hchart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Kalorier per dag">${ticks}${gl}${cols}${labels}</svg>
+    <div class="legend"><span><i style="background:var(--accent)"></i>Proteinmål nådd</span><span><i style="background:var(--bar)"></i>Ikke nådd</span><span><i style="background:var(--over)"></i>Over 10 %</span><span>- - mål ${r0(base.kcal)}</span></div>
+    <div class="note">Trykk på en dag for å åpne den.</div></section>
+   ${wsvg?`<div class="sect">Vekt</div><section class="card hist hchart">${wsvg}</section>`:""}`;
 }
 function viewHist(){
   const t=todayKey(), N=14, base=goals(), days=[];
   for(let i=N-1;i>=0;i--){ const k=addDays(t,-i), d=S.docs[pk("day-")+k], tt=d?totals(d):null, g=goalsFor(k);
     days.push({k,t:tt,g,logged:!!(tt&&tt.kcal>0),hit:!!(tt&&tt.kcal>0&&tt.p>=g.p*0.95)}); }
-  const W=340,H=196,pl=34,pr=32,pb=22,pt=14;
-  const kmax=Math.max(base.kcal*1.25,...days.map(x=>x.t?x.t.kcal:0));
-  const bw=(W-pl-pr)/N, y=v=>pt+(H-pt-pb)*(1-v/kmax);
-  let cols="", labels="";
-  days.forEach((x,i)=>{ const v=x.t?x.t.kcal:0, X=pl+i*bw+3, cx=X+(bw-6)/2;
-    if(v>0) cols+=`<rect x="${X}" y="${y(v)}" width="${bw-6}" height="${y(0)-y(v)}" rx="3" fill="${v>x.g.kcal*1.10?"var(--over)":v>x.g.kcal*1.02?"var(--warn)":"var(--bar)"}"/>`;
-    if(x.hit) cols+=`<circle cx="${cx}" cy="${y(v)-7}" r="3.2" fill="var(--prot)"/>`;
-    cols+=`<rect x="${pl+i*bw}" y="${pt}" width="${bw}" height="${H-pt}" fill="transparent" data-act="openDay" data-v="${x.k}" style="cursor:pointer"><title>${dateLabel(x.k)}</title></rect>`;
-    if(i%2===1||i===N-1){ const d=parseKey(x.k); labels+=`<text x="${cx}" y="${H-6}" text-anchor="middle" font-size="9" fill="var(--muted)">${d.getDate()}.${d.getMonth()+1}</text>`; } });
-  const ticks=[0,Math.round(kmax/2/100)*100,Math.round(kmax*0.95/100)*100].map(v=>`<line x1="${pl}" x2="${W-pr}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${pl-4}" y="${y(v)+3}" text-anchor="end" font-size="9" fill="var(--muted)">${v}</text>`).join("");
-  const goalLine=`<line x1="${pl}" x2="${W-pr}" y1="${y(base.kcal)}" y2="${y(base.kcal)}" stroke="var(--fg)" stroke-width="1" stroke-dasharray="4 3" opacity=".55"/>`;
-  /* weight trend on its own scale (right axis) */
-  const wAll=Object.entries(weightsDoc().items||{}).sort((a,b)=>a[0]<b[0]?-1:1), wIn=wAll.filter(([k])=>k>=days[0].k&&k<=t);
-  let wline="", wleg="";
-  if(wIn.length>=2){ const vs=wIn.map(x=>x[1]), mn=Math.min(...vs)-0.4, mx=Math.max(...vs)+0.4, yw=v=>pt+(H-pt-pb)*(1-(v-mn)/(mx-mn));
-    const pts=wIn.map(([k,v])=>[pl+days.findIndex(x=>x.k===k)*bw+bw/2, yw(v)]);
-    wline=`<polyline points="${pts.map(q=>q.map(n=>n.toFixed(1)).join(",")).join(" ")}" fill="none" stroke="var(--fg)" stroke-width="1.8" stroke-linejoin="round"/>`+pts.map((q,i)=>`<circle cx="${q[0].toFixed(1)}" cy="${q[1].toFixed(1)}" r="${i===pts.length-1?3.6:2.4}" fill="var(--fg)"/>`).join("")
-      +`<text x="${W-pr+4}" y="${yw(mx-0.4)+3}" font-size="9" fill="var(--muted)">${fmt1(mx-0.4)}</text><text x="${W-pr+4}" y="${yw(mn+0.4)+3}" font-size="9" fill="var(--muted)">${fmt1(mn+0.4)}</text><text x="${W-pr+4}" y="${pt-3}" font-size="9" fill="var(--muted)">kg</text>`;
-    wleg=`<span><i style="background:var(--fg);height:2px;vertical-align:3px"></i>Vekt</span>`; }
-  let h=`<div class="sect">Siste 14 dager</div><section class="card hist">
-    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Kalorier per dag siste 14 dager, med vekt">${ticks}${goalLine}${cols}${wline}${labels}</svg>
-    <div class="legend"><span><i style="background:var(--bar)"></i>Kalorier</span><span><i style="background:var(--prot);border-radius:50%"></i>Proteinmål nådd</span>${wleg}<span>- - mål ${r0(base.kcal)}</span></div>
-    <div class="note" style="margin-top:6px">Trykk på en dag for å åpne den.</div></section>`;
+  const wAll=Object.entries(weightsDoc().items||{}).sort((a,b)=>a[0]<b[0]?-1:1);
+  let h=histCharts(wAll);
   /* last 7 days vs the 7 before */
   const half=(a,b)=>{ const xs=days.slice(a,b), lg=xs.filter(x=>x.logged), av=k=>lg.length?lg.reduce((s,x)=>s+x.t[k],0)/lg.length:null;
     const wk=wAll.filter(([k])=>k>=xs[0].k&&k<=xs[xs.length-1].k); return {n:lg.length,kcal:av("kcal"),p:av("p"),c:av("c"),f:av("f"),hit:xs.filter(x=>x.hit).length,w:wk.length?wk[wk.length-1][1]:null}; };
@@ -1473,9 +1560,9 @@ function weightSection(){
       <text x="${pl}" y="${H-5}" font-size="9" fill="var(--muted)">${lab(wv[0][0])}</text><text x="${W-pr}" y="${H-5}" text-anchor="end" font-size="9" fill="var(--muted)">${lab(lk)}</text></svg>`; }
   const rows=ws.slice().reverse(), shown=UI.allW?rows:rows.slice(0,5);
   return `<section class="card" style="display:flex;flex-direction:column;gap:10px">
-    <div class="row" style="flex-wrap:nowrap"><input class="inp num" id="wIn" inputmode="decimal" placeholder="kg" style="flex:1;min-width:0"><input class="inp num" type="date" id="wDate" value="${t}" max="${t}" aria-label="Dato" style="flex:1.4;min-width:0"><button class="btn primary" data-act="logWeight">Logg</button></div>
-    <div class="row"><label for="wTarget" class="note">Målvekt</label><input class="inp num" id="wTarget" inputmode="decimal" value="${target?fmt1(target):""}" placeholder="kg" style="width:70px;padding:8px 10px"><span class="note">kg innen</span><input class="inp num" type="date" id="wTargetDate" value="${prof.targetDate||""}" min="${addDays(t,1)}" aria-label="Måldato" style="flex:1;min-width:0;padding:8px 10px"></div>
-    ${goalBox()}
+    <div class="wlogrow"><input class="inp num" id="wIn" inputmode="decimal" placeholder="Vekt i dag, kg" style="flex:1;min-width:0"><button class="btn primary" data-act="logWeight">Logg</button></div>
+    ${UI.wOther?`<div class="row" style="flex-wrap:nowrap"><label for="wDate" class="note">Dato</label><input class="inp num" type="date" id="wDate" value="${t}" max="${t}" style="flex:1;min-width:0"></div>`:`<button class="link sm" data-act="wOther" style="align-self:flex-start;padding-left:0">Annen dato</button>`}
+    ${target?`${goalBox()}<button class="link sm" data-act="editTarget" style="align-self:flex-start;padding-left:0">Endre målvekt (${fmt1(target)} kg${prof.targetDate?` innen ${dateLabel(prof.targetDate).toLowerCase()}`:""})</button>`:`<button class="btn ghost block" data-act="editTarget">Sett målvekt</button>`}
     ${last?`<div class="note num">Siste: <b>${fmt1(last[1])} kg</b> (${dateLabel(last[0]).toLowerCase()})${rs?` · trend ${rs}`:""}</div>`:`<div class="note">Logg vekten en gang i uka, gjerne om morgenen.</div>`}
     ${est&&!goalPlan()?`<div class="note">${est}</div>`:""}
     ${chart}
@@ -1511,16 +1598,28 @@ function measureSection(){
       return `<tr><td>${l}</td><td><b>${fmt1(b)}</b></td><td style="color:${Math.abs(dv)<0.05?"var(--muted)":"var(--fg)"}">${Math.abs(dv)<0.05?"–":(dv>0?"+":"−")+fmt1(Math.abs(dv))}</td></tr>`; }).join("")}</table>
     <div class="note" style="margin-top:-4px">Endring siden første måling, i cm.</div>`:"";
   return `<section class="card" style="display:flex;flex-direction:column;gap:10px">
-    ${measFields("ms",null,lastv)}
-    <div class="row" style="flex-wrap:nowrap"><label for="msDate" class="note">Dato</label><input class="inp num" type="date" id="msDate" value="${t}" max="${t}" style="flex:1;min-width:0"></div>
-    <details><summary class="note" style="cursor:pointer">Slik måler du</summary><div class="note" style="margin-top:6px">${MEAS.filter(([k])=>!/L$/.test(k)).map(([k,l])=>`<b>${l.replace(/ høyre$/,"")}:</b> ${MEAS_TIP[k]}`).join("<br>")}<br>Mål om morgenen før frokost, med målebåndet stramt mot huden uten å klemme. Du trenger ikke fylle inn alle feltene.</div></details>
-    <button class="btn primary block" data-act="logMeasure">Logg kroppsmål</button>
+    <button class="btn primary block" data-act="newMeasure">Ny måling</button>
     ${table||`<div class="note">Mål gjerne hver 2.–4. uke. Midje- og navlemålet viser fettap selv når vekta står stille.</div>`}
     ${has.length>1?`<div class="row" style="gap:6px">${has.map(([k,l])=>`<button class="chip ${k===ck?"on":""}" data-act="measK" data-v="${k}">${l}</button>`).join("")}</div>`:""}
     ${chart}
     ${rows.length?`<div class="wlist">${rows.slice(0,UI.allM?99:4).map(([k,v])=>{ const n=ALL.filter(([mk])=>v[mk]!=null).length; return `<button data-act="editMeasure" data-v="${k}"><span>${dateLabel(k)}</span><span class="num">${n} mål${v.waist!=null?` · midje <b>${fmt1(v.waist)}</b>`:""}${v.navel!=null?` · navle <b>${fmt1(v.navel)}</b>`:""}</span></button>`; }).join("")}</div>
       ${rows.length>4?`<button class="link sm" data-act="allM">${UI.allM?"Vis færre":`Vis alle (${rows.length})`}</button>`:""}`:""}
   </section>`;
+}
+function sheetMeasureNew(){
+  const ms=Object.entries(measDoc().items||{}).sort((a,b)=>a[0]<b[0]?-1:1).reverse(), t=todayKey();
+  const lastv=k=>{ const x=ms.find(([,v])=>v[k]!=null); return x?x[1][k]:null; };
+  return `${measFields("ms",null,lastv)}
+    <div class="row" style="flex-wrap:nowrap"><label for="msDate" class="note">Dato</label><input class="inp num" type="date" id="msDate" value="${t}" max="${t}" style="flex:1;min-width:0"></div>
+    <details><summary class="note" style="cursor:pointer">Slik måler du</summary><div class="note" style="margin-top:6px">${MEAS.filter(([k])=>!/L$/.test(k)).map(([k,l])=>`<b>${l.replace(/ høyre$/,"")}:</b> ${MEAS_TIP[k]}`).join("<br>")}<br>Mål om morgenen før frokost, med målebåndet stramt mot huden uten å klemme. Du trenger ikke fylle inn alle feltene.</div></details>
+    <button class="btn primary block" data-act="logMeasure">Logg kroppsmål</button>`;
+}
+function sheetTarget(){
+  const prof=S.docs[pk("profile")]||{}, t=todayKey();
+  return `<div class="grid2"><div class="field"><label for="tgtKg">Målvekt (kg)</label><input class="inp num" id="tgtKg" inputmode="decimal" value="${prof.targetWeight?fmt1(prof.targetWeight):""}" placeholder="kg"></div>
+    <div class="field"><label for="tgtDate">Innen (valgfritt)</label><input class="inp num" type="date" id="tgtDate" value="${prof.targetDate||""}" min="${addDays(t,1)}"></div></div>
+    <div class="note">Med en dato viser appen hvor mye du må ned i uka, og om du er i rute.</div>
+    <button class="btn primary block" data-act="saveTarget">Lagre</button>${prof.targetWeight?`<button class="btn ghost block" data-act="clearTarget">Fjern målvekt</button>`:""}`;
 }
 function sheetMeasure(s){ const v=(measDoc().items||{})[s.date]||{};
   return `${measFields("me",v)}
@@ -1582,7 +1681,7 @@ function settingsMeals(){
    <div class="note" style="margin-top:8px">Rekkefølgen her bestemmer rekkefølgen på Dag. Skjulte måltider vises likevel hvis det er logget noe i dem. «Pre-workout» vises bare på treningsdager.${mealCfg()?"":" Uten egne valg sorteres måltidene etter tidene i «Måltidstider»."}</div>
    ${mealCfg()?`<button class="btn ghost block" data-act="mealReset" style="margin-top:10px">Tilbakestill</button>`:""}`;
 }
-const SSUB={sync:"Synk mellom telefoner",people:"Personer",meals:"Måltider",plan:"Faste måltider og trening",food:"Matvarer og Kassalapp",data:"Coach og backup"};
+const SSUB={sync:"Synk mellom telefoner",people:"Personer",meals:"Måltider",mymeals:"Mine måltider",plan:"Trening",food:"Matvarer og Kassalapp",data:"Coach og backup"};
 function viewSettings(){
   const pl=people().list, sub=UI.sset||"";
   if(sub&&SSUB[sub]){
@@ -1594,6 +1693,7 @@ function viewSettings(){
 `;
     else if(sub==="meals") body=settingsMeals();
     else if(sub==="plan") body=viewPlan();
+    else if(sub==="mymeals") body=viewMyMeals();
     else if(sub==="food") body=`    <div class="sect">Mine matvarer (${Object.keys(foodsDoc().items||{}).length})</div>
     ${Object.keys(foodsDoc().items||{}).length?`<input class="inp" id="foodQ" placeholder="Søk i mine matvarer" autocomplete="off" style="margin-bottom:8px"><div id="myFoods">${myFoodsList("")}</div>`
       :`<section class="card note">Varer du skanner eller legger inn selv havner her, så du finner dem raskt neste gang.</section>`}
@@ -1615,9 +1715,12 @@ function viewSettings(){
     <div class="sect">Backup</div><section class="card" style="display:flex;flex-direction:column;gap:10px">
     <div class="note">Alt lagres bare på telefonen. Ta en backup av og til, for eksempel til e-post eller Google Disk, så mister du ingenting om du bytter telefon.</div>
     ${(()=>{ const d=backupInfo().days; return `<div class="okline" style="color:${d==null||d>=14?"var(--over)":"var(--ok)"}">${d==null?"Ingen backup tatt ennå":d===0?"Siste backup: i dag":`Siste backup: ${d} ${d===1?"dag":"dager"} siden`}</div>`; })()}
-    <button class="btn primary block" data-act="exportData">Del backup</button>
-    <div class="field"><label for="backupTxt">Gjenopprett: lim inn backup-teksten her</label><textarea class="inp" id="backupTxt" rows="3"></textarea></div>
-    <button class="btn ghost block" data-act="importData">Gjenopprett fra backup</button></section>
+    ${hhState()?`<div class="note">Synk er på, så dataene ligger også trygt på serveren. En backup-fil er likevel fin å ha.</div>`:""}
+    <button class="btn primary block" data-act="exportData">Lagre backup-fil</button>
+    <button class="btn ghost block" data-act="pickBackup">Gjenopprett fra fil</button>
+    <details><summary class="note" style="cursor:pointer">Har du en backup som tekst?</summary>
+    <div class="field" style="margin-top:8px"><label for="backupTxt">Lim inn backup-teksten her</label><textarea class="inp" id="backupTxt" rows="3"></textarea></div>
+    <button class="btn ghost block" data-act="importData">Gjenopprett fra teksten</button></details></section>
 `;
     return `<button class="link sm backlink" data-act="sset" data-v="">‹ Innstillinger</button><h2 class="ptitle">${SSUB[sub]}</h2>`+body;
   }
@@ -1627,8 +1730,9 @@ function viewSettings(){
     <div class="sect">Farger</div><section class="card"><div class="seg" role="group" aria-label="Fargetema">${[["","Monokrom"],["lime","Lime"],["is","Is"]].map(([k,l])=>`<button data-act="setPal" data-v="${k}" class="${((S.docs.settings||{}).palette||"")===k?"on":""}">${l}</button>`).join("")}</div></section>
     <div class="list setnav">
       ${row("people","Personer",pl.map(p=>esc(p.name)).join(", "))}
-      ${row("meals","Måltider","Navn, rekkefølge og hvilke som vises")}
-      ${row("plan","Faste måltider og trening",`${nT} faste måltider · treningsdager`)}
+      ${row("meals","Måltidene på Dag","Navn, rekkefølge og hvilke som vises")}
+      ${row("mymeals","Mine måltider",`${nT+Object.values(foodsDoc().items||{}).filter(f=>f.dish).length} lagrede måltider og retter`)}
+      ${row("plan","Trening",(()=>{ const dd=(plan().pre.days||[]); return dd.length?["Ma","Ti","On","To","Fr","Lø","Sø"].filter((x,i)=>dd.includes(i)).join(", ")+` · +${r0(plan().pre.extraKcal)} kcal`:`Ekstra kcal på treningsdager: +${r0(plan().pre.extraKcal)}`; })())}
       <button data-act="tab" data-v="tider"><span class="nm">Måltidstider og varsler<small>Kalkulator, faste tider og påminnelser${plan().reminders?" (varsler på)":""}</small></span><span aria-hidden="true">›</span></button>
       ${row("food","Matvarer og Kassalapp",`${nF} egne matvarer · Kassalapp ${kassalKey()?"koblet til":"ikke koblet til"}`)}
       ${row("sync","Synk mellom telefoner",(()=>{ const st=hhState(); return st?(st.err?"Ingen kontakt med serveren":"På"):"Av – del dataene med en annen telefon"; })())}
@@ -1657,10 +1761,17 @@ function renderSheet(){
   else if(s.type==="quick"){ title=s.entryId?"Endre hurtiglogg":"Hurtiglogg"; body=sheetQuick(s); }
   else if(s.type==="slot"){ title=meal(s.slot)+(s.at?" kl "+hhmm(s.at):""); body=sheetSlot(s); }
   else if(s.type==="tpl"){ title=UI.tplDraft.dish?(UI.tplDraft.prep?(UI.tplDraft.id?"Endre mealprep":"Ny mealprep"):UI.tplDraft.id?"Endre rett":"Ny rett"):UI.tplDraft.id&&tplById(UI.tplDraft.id)?"Endre fast måltid":"Nytt fast måltid"; body=UI.tplDraft.dish?sheetDish():sheetTpl(); }
+  else if(s.type==="dayMenu"){ title=UI.date===todayKey()?"I dag":dateLabel(UI.date); body=sheetDayMenu(); }
+  else if(s.type==="train"){ title="Trening"; body=sheetTrain(); }
+  else if(s.type==="weekInfo"){ title="Ukebudsjett"; body=sheetWeekInfo(); }
   else if(s.type==="copyMeal"){ title=s.mk==="*"?"Kopier hele dagen":meal(s.mk)+": kopier"; body=sheetCopyMeal(s); }
   else if(s.type==="weight"){ title="Endre vekt"; body=sheetWeight(s); }
   else if(s.type==="hhWho"){ title="Hvem er du?"; body=sheetHhWho(); }
   else if(s.type==="prepDist"){ title="Fordel porsjoner"; body=sheetPrepDist(s); }
+  else if(s.type==="restore"){ title="Gjenopprett backup"; const ex=s.j.exported?new Date(s.j.exported):null, nD=Object.keys(s.j.docs).filter(k=>/(^|:)day-/.test(k)).length;
+    body=`<div class="note">Backupen er fra ${ex?ex.toLocaleDateString("nb-NO",{day:"numeric",month:"long",year:"numeric"}):"ukjent dato"} og har ${nD} dager med mat.</div><div class="note"><b>Alt som ligger i appen nå, erstattes med backupen.</b>${hhState()?" Med synk på blir dette også sendt til de andre telefonene.":""}</div><button class="btn primary block" data-act="restoreDo">Gjenopprett</button>`; }
+  else if(s.type==="measNew"){ title="Ny måling"; body=sheetMeasureNew(); }
+  else if(s.type==="target"){ title="Målvekt"; body=sheetTarget(); }
   else if(s.type==="measure"){ title="Endre kroppsmål"; body=sheetMeasure(s); }
   else if(s.type==="amount"){ title=s.entryId?"Endre":"Mengde"; body=sheetAmount(s); }
   else if(s.type==="product"){ title=s.id?"Endre matvare":"Ny matvare"; body=sheetProduct(s); }
@@ -1765,7 +1876,7 @@ async function kassalSearch(q,key){
 function onlineSection(s,q,key,label){
   const st=((s.online||{})[q]||{})[key]; if(!st) return "";
   if(st.busy) return `<div class="sect">${label}</div><div class="busy"><div class="spin"></div>Søker …</div>`;
-  if(st.err) return `<div class="sect">${label}</div><div class="note err">${esc(st.err)}</div>`;
+  if(st.err) return `<div class="note soft" style="margin:8px 2px">${esc(label)}: ingen kontakt akkurat nå.</div>`;
   if(!st.res.length) return "";
   return `<div class="sect">${label}</div><div class="list">${st.res.map((f,i)=>`<button data-act="pickOnline" data-v="${key}:${i}"><span class="nm">${esc(f.name)}<br><small class="num">${r0(f.per.kcal)} kcal · P ${fmt1(f.per.p)} · K ${fmt1(f.per.c)} · F ${fmt1(f.per.f)} per 100 g</small></span></button>`).join("")}</div>`;
 }
@@ -1802,9 +1913,9 @@ function sheetPick(s){
   const ai=!!SAMPLE && s.meal!=="tpl";
   let h=`<input class="inp qbig" id="q" type="search" placeholder="Søk i matvarer" value="${esc(s.q||"")}" autocomplete="off" enterkeyhint="search">
     <div class="qtools">
-    <button class="qtool" data-act="scan">${ICON.scan}<span>Skann</span></button>
+    <button class="qtool big" data-act="scan">${ICON.scan}<span>Skann strekkode</span></button>
     <button class="qtool" data-act="quick">${ICON.bolt}<span>Hurtiglogg</span></button>
-    ${s.meal!=="tpl"?`<button class="qtool" data-act="newDish">${ICON.pot}<span>Ny rett</span></button>`:""}
+    ${s.meal!=="tpl"?`<button class="qtool" data-act="makeMeal">${ICON.pot}<span>Lag måltid</span></button>`:""}
     ${ai?`<button class="qtool" data-act="labelPhoto">${ICON.label}<span>Etikett</span></button>`:""}
     ${ai?`<button class="qtool" data-act="estimate">${ICON.spark}<span>Beskriv</span></button>`:""}
     <button class="qtool" data-act="newProduct">${ICON.pen}<span>Ny matvare</span></button></div>`;
@@ -1821,7 +1932,8 @@ function sheetPick(s){
     h+=`<button class="btn ghost block" data-act="newProduct" data-name="${esc(s.q)}">Legg inn «${esc(s.q)}» selv</button>`;
     if(MVT.foods&&gen.length) h+=`<div class="note">Kilde for generelle matvarer: Matvaretabellen, Mattilsynet.</div>`; }
   else { const tpls=Object.values(mealsDoc().items||{});
-    if(tpls.length && s.meal!=="tpl") h+=`<div class="sect">Faste måltider</div><div class="list">${tpls.map(t=>`<button data-act="logTpl" data-v="${t.id}"><span class="nm">${esc(t.name)}<br><small class="num">${t.items.length} ting · ${r0(tplTotals(t).kcal)} kcal</small></span></button>`).join("")}</div>`;
+    const dishes=Object.values(foodsDoc().items||{}).filter(f=>f.dish&&f.per&&f.portion);
+    if((tpls.length||dishes.length) && s.meal!=="tpl") h+=`<div class="sect">Mine måltider</div><div class="list">${tpls.map(t=>`<button data-act="logTpl" data-v="${t.id}"><span class="nm">${esc(t.name)}<br><small class="num">${t.items.length} ting · ${r0(tplTotals(t).kcal)} kcal · logges med ett trykk</small></span></button>`).join("")}${dishes.map(f=>{ const vv=calc(f.per,f.portion.g); return `<button data-act="pickFood" data-v="${esc(f.id)}"><span class="nm">${esc(f.name)}<br><small class="num">1 porsjon · ${r0(vv.kcal)} kcal · P ${r0(vv.p)}</small></span></button>`; }).join("")}</div>`;
     const rec=recentFoods(); s.rec=rec; if(rec.length) h+=`<div class="sect">Nylig brukt</div><div class="list">${rec.map((f,i)=>quickRow(f,"pickRecent","logRecent",i)).join("")}</div>`;
     const used=mostUsed(new Set(rec.map(f=>f.name.toLowerCase()))); s.used=used;
     if(used.length) h+=`<div class="sect">Mest brukt</div><div class="list">${used.map((f,i)=>quickRow(f,"pickUsed","logUsed",i)).join("")}</div>`;
@@ -2296,7 +2408,7 @@ document.addEventListener("click", async ev=>{
   else if(a==="wakeCancel"){ UI.wakeEdit=false; render(); }
   else if(a==="logSlotTpl"){ const sl=daySchedule(UI.date).find(x=>x.meal===v), tp=sl&&tplById(sl.tpl); if(tp){ logTemplate(UI.date,v,tp,false); toast(`${tp.name} er logget`); } }
   else if(a==="logTpl"){ const tp=tplById(v); if(tp){ const mk=UI.sheet.meal; UI.sheet=null; UI.addTarget=null; renderSheet(); logTemplate(UI.date,mk,tp,false); toast(`${tp.name} er logget`); } }
-  else if(a==="slotLog"){ const s=UI.sheet, tp=tplById(s.tpl), w=$("#slotWater").checked; UI.date=s.day; closeSheet(); logTemplate(s.day,s.slot,tp,w); toast(`${tp.name} er logget${w?", pluss ett glass vann":""}`); }
+  else if(a==="slotLog"){ const s=UI.sheet, tp=tplById(s.tpl), w=false; UI.date=s.day; closeSheet(); logTemplate(s.day,s.slot,tp,w); toast(`${tp.name} er logget${w?", pluss ett glass vann":""}`); }
   else if(a==="slotOther"){ const s=UI.sheet; UI.date=s.day; openSheet({type:"pick",meal:s.slot,q:""}); }
   else if(a==="slotWaterOnly"){ const s=UI.sheet, d=clone(dayDoc(s.day)); d.kind="day"; d.date=s.day; addWaterL(d,0.25); closeSheet(); writeDoc(pk("day-")+s.day,d); toast("Ett glass vann er logget"); }
   else if(a==="newTpl"){ UI.tplDraft={id:"",name:"",items:[]}; openSheet({type:"tpl"}); }
@@ -2315,8 +2427,22 @@ document.addEventListener("click", async ev=>{
     if(window.Android&&Android.share) Android.share(txt,"Makrologg synkkode"); else if(navigator.share) navigator.share({text:txt}).catch(()=>{});
     else if(navigator.clipboard) navigator.clipboard.writeText(code).then(()=>toast("Koden er kopiert")); }
   else if(a==="hhOff"){ hhSave(null); toast("Synk er slått av på denne telefonen. Dataene er beholdt."); render(); }
+  else if(a==="weekInfo"){ openSheet({type:"weekInfo"}); }
+  else if(a==="trainTap"){ if(isTraining(UI.date)||t.dataset.k==="sheet") openSheet({type:"train"}); else setTrain(UI.date,true); }
+  else if(a==="trainSave"){ const on=$("#trSheetOn").checked, x=Math.max(0,Math.round(numIn($("#trSheetX").value))); closeSheet(); setTrain(UI.date,on,x); }
+  else if(a==="trainDay"){ const pr=clone(S.docs[pk("profile")]||{kind:"profile"}); pr.kind="profile"; const pl=plan(); const i=Number(v), dd=new Set(pl.pre.days||[]); dd.has(i)?dd.delete(i):dd.add(i); pl.pre.days=[...dd].sort(); pr.plan=pl; writeDoc(pk("profile"),pr); }
+  else if(a==="glass"){ const d=clone(dayDoc(UI.date)); d.kind="day"; d.date=UI.date; const cur=Math.round((waterState(d).l||0)*4), n=Number(v)===cur?cur-1:Number(v); d.waterL=n*0.25; d.waterAns=n>0?"ja":null; d.water=n; writeDoc(pk("day-")+UI.date,d); }
+  else if(a==="dayMenu"){ openSheet({type:"dayMenu"}); }
+  else if(a==="wOther"){ UI.wOther=true; render(); }
+  else if(a==="editTarget"){ openSheet({type:"target"}); }
+  else if(a==="saveTarget"){ const pr=clone(S.docs[pk("profile")]||{kind:"profile"}); pr.kind="profile"; const kg=numIn($("#tgtKg").value); pr.targetWeight=kg>=20&&kg<=400?kg:null; pr.targetDate=pr.targetWeight?($("#tgtDate").value||null):null; closeSheet(); writeDoc(pk("profile"),pr); toast(pr.targetWeight?`Målvekt ${fmt1(kg)} kg lagret`:"Målvekt fjernet"); }
+  else if(a==="clearTarget"){ const pr=clone(S.docs[pk("profile")]||{kind:"profile"}); pr.kind="profile"; pr.targetWeight=null; pr.targetDate=null; closeSheet(); writeDoc(pk("profile"),pr); toast("Målvekt fjernet"); }
+  else if(a==="newMeasure"){ openSheet({type:"measNew"}); }
+  else if(a==="histN"){ UI.histN=Number(v); render(); }
+  else if(a==="wsumHide"){ const st=clone(S.docs.settings||{kind:"settings"}); st.kind="settings"; st.wsumHidden=weekKeyOf(todayKey()); writeDoc("settings",st); }
+  else if(a==="makeMeal"){ const mk=UI.sheet&&UI.sheet.meal&&UI.sheet.meal!=="tpl"?UI.sheet.meal:guessMeal(); UI.tplDraft={id:"",name:"",items:[],dish:true,cooked:"",servings:"1",prep:true,save:false,meal:mk,fromAdd:true,date:UI.date}; openSheet({type:"tpl"}); }
   else if(a==="newPrep"){ UI.tplDraft={id:"",name:"",items:[],dish:true,cooked:"",servings:"",prep:true,save:false,meal:guessMeal()}; openSheet({type:"tpl"}); }
-  else if(a==="prepNext"){ const t=UI.tplDraft; dishSync(); t.name=(t.name||"").trim();
+  else if(a==="prepNext"){ const t=UI.tplDraft, t0={fromAdd:t.fromAdd,date:t.date,meal:t.meal}; dishSync(); t.name=(t.name||"").trim();
     if(!t.name){ toast("Gi retten et navn"); return; } if(!t.items.length){ toast("Legg til minst én ingrediens"); return; }
     const tot=dishTotals(t), n=dishServ(t), cooked=numIn(t.cooked)||tot.g; if(cooked<=0){ toast("Legg inn mengdene"); return; }
     const per={kcal:r1(tot.kcal*100/cooked),p:r1(tot.p*100/cooked),f:r1(tot.f*100/cooked),c:r1(tot.c*100/cooked)}, pg=r1(cooked/n);
@@ -2327,7 +2453,8 @@ document.addEventListener("click", async ev=>{
     const batch={id:"b"+uid(),name:t.name,per,pg,servings:n,left:n,foodId,made:Date.now()};
     UI.tplDraft=null; UI.addTarget=null;
     const by={}; people().list.forEach(p=>by[p.id]=p.id===CUR||people().list.length===1?1:1);
-    openSheet({type:"prepDist",batch,stored:false,rows:[{date:todayKey(),meal:"middag",by}]}); }
+    if(t0.fromAdd){ for(const k in by) by[k]=k===CUR?1:0; }
+    openSheet({type:"prepDist",batch,stored:false,rows:[{date:t0.date||todayKey(),meal:t0.meal||"middag",by}]}); }
   else if(a==="prepOpen"){ const b=(prepDoc().items||{})[v]; if(!b) return; const by={}; people().list.forEach(p=>by[p.id]=0); by[CUR]=1;
     openSheet({type:"prepDist",batch:clone(b),stored:true,rows:[{date:todayKey(),meal:"middag",by}]}); }
   else if(a==="prepCnt"){ const s=UI.sheet, r=s.rows[Number(v)], [pid,d]=t.dataset.k.split(":"), cur=Number(r.by[pid])||0;
@@ -2369,10 +2496,14 @@ document.addEventListener("click", async ev=>{
   else if(a==="notifSettings"){ if(window.Android&&Android.openNotifSettings) Android.openNotifSettings(); }
   else if(a==="installUpdate"){ if(window.Android&&Android.installUpdate){ UPD.status="progress"; UPD.pct=0; render(); Android.installUpdate(); } }
   else if(a==="checkUpdates"){ if(window.Android&&Android.checkUpdates){ Android.checkUpdates(); toast("Ser etter oppdateringer …"); } }
-  else if(a==="exportData"){ const txt=JSON.stringify({app:"makrologg",v:1,exported:new Date().toISOString(),docs:S.docs});
+  else if(a==="exportData"){ const txt=JSON.stringify({app:"makrologg",v:1,exported:new Date().toISOString(),docs:S.docs}), fn="makrologg-backup-"+todayKey()+".json";
     const st0=clone(S.docs.settings||{kind:"settings"}); st0.kind="settings"; st0.lastBackup=Date.now(); writeDoc("settings",st0);
-    if(window.Android&&Android.share) Android.share(txt,"Makrologg-backup "+todayKey());
+    if(window.Android&&Android.shareFile) Android.shareFile(fn,txt);
+    else if(!window.Android){ const a2=document.createElement("a"); a2.href=URL.createObjectURL(new Blob([txt],{type:"application/json"})); a2.download=fn; document.body.appendChild(a2); a2.click(); setTimeout(()=>{ URL.revokeObjectURL(a2.href); a2.remove(); },2000); toast("Backup-filen er lastet ned"); }
+    else if(window.Android&&Android.share) Android.share(txt,"Makrologg-backup "+todayKey());
     else { const ta=$("#backupTxt"); ta.value=txt; ta.select(); try{ navigator.clipboard.writeText(txt); toast("Kopiert"); }catch(e){} } }
+  else if(a==="pickBackup"){ $("#fileBackup").click(); }
+  else if(a==="restoreDo"){ const j=UI.sheet.j; S.docs=j.docs; lsSave(); hhMarkAll(); syncActive(); closeSheet(); UI.date=todayKey(); UI.lastToday=UI.date; render(); reschedule(); toast("Backup gjenopprettet"); }
   else if(a==="importData"){ try{ const j=JSON.parse($("#backupTxt").value); if(j.app!=="makrologg"||!j.docs) throw 0;
       S.docs=j.docs; lsSave(); hhMarkAll(); syncActive(); UI.date=todayKey(); UI.lastToday=UI.date; render(); reschedule(); toast("Backup gjenopprettet"); }catch(e){ toast("Teksten er ikke en gyldig backup"); } }
   else if(a==="bcLookup"){ handleCode($("#bcIn").value); }
@@ -2428,13 +2559,13 @@ Svar KUN med JSON: {"items":[{"name":"kort norsk navn","grams":tall,"kcal":tall,
   else if(a==="setPal"){ const st=clone(S.docs.settings||{kind:"settings"}); st.kind="settings"; st.palette=v||""; writeDoc("settings",st); }
   else if(a==="logRecent"||a==="logUsed"){ const list=a==="logRecent"?UI.sheet.rec:UI.sheet.used, f=list&&list[Number(v)]; if(!f) return;
     const mk=UI.sheet.meal&&UI.sheet.meal!=="tpl"?UI.sheet.meal:guessMeal(); closeSheet(); logFoodNow(f,f.lastG,mk); }
-  else if(a==="noteOpen"){ UI.noteOpen=true; render(); setTimeout(()=>{ const el=$("#dayNote"); if(el) el.focus(); },30); }
+  else if(a==="noteOpen"){ if(UI.sheet) closeSheet(); UI.noteOpen=true; render(); setTimeout(()=>{ const el=$("#dayNote"); if(el) el.focus(); },30); }
   else if(a==="calMonth"){ UI.calMonth=v; render(); }
   else if(a==="goalsOpen"){ UI.goalsOpen=!UI.goalsOpen; render(); }
   else if(a==="allM"){ UI.allM=!UI.allM; render(); }
   else if(a==="logMeasure"){ const rec=readMeas("ms"), dk=($("#msDate")&&$("#msDate").value)||todayKey();
     if(!Object.keys(rec).length){ toast("Skriv inn minst ett mål i cm"); return; }
-    const md=clone(measDoc()); md.kind="measures"; md.items=md.items||{}; md.items[dk]=Object.assign(md.items[dk]||{},rec); writeDoc(pk("measures"),md); toast(`${Object.keys(rec).length} mål logget for ${dateLabel(dk).toLowerCase()}`); }
+    const md=clone(measDoc()); md.kind="measures"; md.items=md.items||{}; md.items[dk]=Object.assign(md.items[dk]||{},rec); if(UI.sheet&&UI.sheet.type==="measNew") closeSheet(); writeDoc(pk("measures"),md); toast(`${Object.keys(rec).length} mål logget for ${dateLabel(dk).toLowerCase()}`); }
   else if(a==="measK"){ UI.measK=v; render(); }
   else if(a==="editMeasure"){ openSheet({type:"measure",date:v}); }
   else if(a==="saveMeasureEdit"){ const s=UI.sheet, old=(measDoc().items||{})[s.date]||{}, rec=readMeas("me"); for(const [k] of MEAS_OLD) if(old[k]!=null) rec[k]=old[k];
@@ -2450,12 +2581,17 @@ Svar KUN med JSON: {"items":[{"name":"kort norsk navn","grams":tall,"kcal":tall,
     toast(n?`${n} ${n===1?"rett":"retter"} kopiert fra forrige uke`:"Ingenting å kopiere"); }
   else if(a==="gmToggle"){ UI.gmOpen=!UI.gmOpen; render(); }
   else if(a==="backupLater"){ const st=clone(S.docs.settings||{kind:"settings"}); st.kind="settings"; st.backupSnooze=Date.now()+7*864e5; writeDoc("settings",st); }
-  else if(a==="copyMeal"){ const others=people().list.filter(x=>x.id!==CUR); const to={}; if(others[0]) to[others[0].id]=true; openSheet({type:"copyMeal",mk:v,pct:100,to}); }
+  else if(a==="copyMeal"){ const others=people().list.filter(x=>x.id!==CUR), toDay=t.dataset.k==="day", to={};
+    if(toDay||!others.length) to[CUR]=true; else to[others[0].id]=true;
+    const dt=toDay?(UI.date===todayKey()?addDays(UI.date,1):todayKey()):UI.date;
+    openSheet({type:"copyMeal",mk:v,pct:100,to,date:dt,day:dt,toMeal:v==="*"?null:v}); }
   else if(a==="cmPct"){ UI.sheet.pct=Number(v); renderSheet(); }
   else if(a==="copyMealDo"){ const s=UI.sheet, f=(Number(s.pct)||100)/100, es=(dayDoc(UI.date).entries||[]).filter(e=>s.mk==="*"||e.meal===s.mk), ids=Object.keys(s.to).filter(k=>s.to[k]);
+    const dk=($("#cmDate")&&$("#cmDate").value)||s.date||UI.date, tm=$("#cmMeal")?$("#cmMeal").value:null;
     if(!ids.length){ toast("Velg minst én person"); return; }
-    for(const pid of ids) for(const e of es) addToDay(pid, UI.date, Object.assign(clone(e),{id:uid(),g:(e.g||0)*f,kcal:e.kcal*f,p:e.p*f,c:e.c*f,f:e.f*f}));
-    closeSheet(); toast(`${s.mk==="*"?"Dagen":meal(s.mk)} kopiert til ${ids.map(x=>personOf(x).name).join(", ")}${f!==1?` (${r0(f*100)} %)`:""}`); }
+    if(dk===UI.date&&ids.length===1&&ids[0]===CUR&&(!tm||tm===s.mk)){ toast("Velg en annen dag, et annet måltid eller en annen person"); return; }
+    for(const pid of ids) for(const e of es) addToDay(pid, dk, Object.assign(clone(e),{id:uid(),meal:tm||e.meal,g:(e.g||0)*f,kcal:e.kcal*f,p:e.p*f,c:e.c*f,f:e.f*f}));
+    closeSheet(); toast(`${s.mk==="*"?"Dagen":meal(s.mk)} kopiert til ${dk===todayKey()?"i dag":dateLabel(dk).toLowerCase()}${ids.length>1||ids[0]!==CUR?" for "+ids.map(x=>personOf(x).name).join(", "):""}${f!==1?` (${r0(f*100)} %)`:""}`); }
   else if(a==="cnt"){ const s=UI.sheet, u=amtUnits(s.food)[s.unitIdx||0]; if(!u) return; let c=numIn($("#amtG").value)/u.g;
     c = Number(v)>0 ? (c<1 ? Math.floor(c*2+1e-9)/2+0.5 : Math.floor(c+1e-9)+1) : (c<=1 ? Math.max(0.5,Math.ceil(c*2-1e-9)/2-0.5) : Math.ceil(c-1e-9)-1);
     const g=r1(c*u.g); s.g=g; $("#amtG").value=g; updateAmountPreview(); }
@@ -2484,6 +2620,7 @@ document.addEventListener("change", ev=>{
   if(ev.target.id==="amtMeal" && UI.sheet) UI.sheet.meal=ev.target.value;
   if(ev.target.id==="datePick" && ev.target.value){ UI.date=ev.target.value; ev.target.style.pointerEvents="none"; render(); }
   if(ev.target.matches("[data-pl]")) savePlanForm();
+  if((ev.target.id==="cmDate"||ev.target.id==="cmMeal")&&UI.sheet){ if(ev.target.id==="cmDate"){ UI.sheet.date=ev.target.value; UI.sheet.day=ev.target.value; } else UI.sheet.toMeal=ev.target.value; return; }
   if(ev.target.dataset&&ev.target.dataset.pr&&UI.sheet&&UI.sheet.rows){ UI.sheet.rows[Number(ev.target.dataset.i)][ev.target.dataset.pr]=ev.target.value; return; }
   if(ev.target.id==="hhMe"){ setActive(ev.target.value); toast(`Appen åpner nå på ${personOf(ev.target.value).name}`); return; }
   if(ev.target.id==="dayNote"){ const d=clone(dayDoc(UI.date)); d.kind="day"; d.date=UI.date; const tx=ev.target.value.trim(); if(tx) d.note=tx; else delete d.note; UI.noteOpen=false; writeDoc(pk("day-")+UI.date,d); toast(tx?"Notat lagret":"Notat fjernet"); }
@@ -2521,6 +2658,8 @@ function savePlanForm(){
   pr.plan=pl; writeDoc(pk("profile"),pr);
   if(pl.reminders&&!wasOn&&notifState()!=="granted"&&window.Android&&Android.requestNotifPermission) Android.requestNotifPermission();
 }
+document.addEventListener("change", ev=>{ if(ev.target.id!=="fileBackup") return; const fl=ev.target.files&&ev.target.files[0]; ev.target.value=""; if(!fl) return;
+  fl.text().then(tx=>{ let j; try{ j=JSON.parse(tx); }catch(e){} if(!j||j.app!=="makrologg"||!j.docs){ toast("Filen er ikke en Makrologg-backup"); return; } openSheet({type:"restore",j}); }); });
 document.addEventListener("focusin", ev=>{ const t=ev.target;
   if(t && t.matches && t.matches('input[inputmode="decimal"],input[inputmode="numeric"]')) setTimeout(()=>{ try{ t.select(); }catch(e){} },0); });
 document.addEventListener("keydown", ev=>{
