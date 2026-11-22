@@ -1,4 +1,4 @@
-<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="31"><title>Makrologg</title><meta name="theme-color" content="#000000"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><meta name="apple-mobile-web-app-title" content="Makrologg"><link rel="apple-touch-icon" href="apple-touch-icon.png"><link rel="manifest" href="manifest.webmanifest">
+<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="32"><title>Makrologg</title><meta name="theme-color" content="#000000"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><meta name="apple-mobile-web-app-title" content="Makrologg"><link rel="apple-touch-icon" href="apple-touch-icon.png"><link rel="manifest" href="manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
 <style>
@@ -189,6 +189,10 @@ header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background
 .callg span{display:inline-flex;align-items:center;gap:5px}
 .callg i{width:10px;height:10px;border-radius:3px;display:inline-block}
 .notecard textarea{width:100%;resize:vertical;min-height:54px}
+.mtab{width:100%;border-collapse:collapse;font-size:14px}
+.mtab th{font-size:12px;color:var(--muted);font-weight:600;text-align:right;padding:0 0 4px}
+.mtab td{padding:6px 0;border-top:1px solid var(--line);text-align:right}
+.mtab td:first-child,.mtab th:first-child{text-align:left}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .qk-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .meal h3{margin:0;font-family:var(--display);font-weight:600;font-size:17px}
@@ -1480,31 +1484,47 @@ function weightSection(){
       ${rows.length>5?`<button class="link sm" data-act="allW">${UI.allW?"Vis færre":`Vis alle (${rows.length})`}</button>`:""}`:""}
   </section>`;
 }
-const MEAS=[["waist","Midje"],["hip","Hofte"],["arm","Arm"]];
+const MEAS=[["armR","Arm høyre"],["armL","Arm venstre"],["thighR","Lår høyre"],["thighL","Lår venstre"],["waist","Midje"],["navel","Navlemål"],["hip","Hofte"],["chest","Bryst"]];
+const MEAS_OLD=[["arm","Arm (tidligere)"]];
+const MEAS_TIP={armR:"Bredeste punkt på overarmen",armL:"Bredeste punkt på overarmen",thighR:"Bredeste punkt på låret",thighL:"Bredeste punkt på låret",waist:"Smaleste punkt på magen",navel:"Rett over navlen",hip:"Bredeste punkt over setet",chest:"Over brystvortene, etter en vanlig utpust"};
 const measDoc = () => S.docs[pk("measures")] || {kind:"measures",items:{}};
+function measFields(pre,vals,ph){
+  const f=([k,l])=>`<div class="field"><label for="${pre}-${k}">${l}</label><input class="inp num" id="${pre}-${k}" inputmode="decimal" ${vals?`value="${vals[k]!=null?fmt1(vals[k]):""}"`:`placeholder="${ph&&ph(k)!=null?fmt1(ph(k)):"cm"}"`}></div>`;
+  return `<div class="grid2">${MEAS.map(f).join("")}</div>`;
+}
+function readMeas(pre){ const rec={}; for(const [k] of MEAS){ const el=$("#"+pre+"-"+k); const x=el?numIn(el.value):0; if(x>=10&&x<=250) rec[k]=x; } return rec; }
 function measureSection(){
   const ms=Object.entries(measDoc().items||{}).sort((a,b)=>a[0]<b[0]?-1:1), t=todayKey(), rows=ms.slice().reverse();
+  const ALL=MEAS.concat(MEAS_OLD.filter(([k])=>ms.some(([,v])=>v[k]!=null)));
   const first=k=>{ const x=ms.find(([,v])=>v[k]!=null); return x?x[1][k]:null; }, lastv=k=>{ const x=rows.find(([,v])=>v[k]!=null); return x?x[1][k]:null; };
+  const has=ALL.filter(([k])=>lastv(k)!=null);
+  const ck=has.some(([k])=>k===UI.measK)?UI.measK:(has.find(([k])=>k==="waist")||has[0]||[])[0];
   let chart="";
-  const wv=ms.filter(([,v])=>v.waist!=null);
-  if(wv.length>=2){ const W=340,H=90,pl=30,pr=8,pt=8,pb=16, vals=wv.map(x=>x[1].waist), mn=Math.min(...vals)-1, mx=Math.max(...vals)+1;
+  const wv=ck?ms.filter(([,v])=>v[ck]!=null):[];
+  if(wv.length>=2){ const W=340,H=100,pl=30,pr=8,pt=8,pb=16, vals=wv.map(x=>x[1][ck]), mn=Math.min(...vals)-1, mx=Math.max(...vals)+1;
     const d0=parseKey(wv[0][0]), span=Math.max(1,(parseKey(wv[wv.length-1][0])-d0)/864e5);
     const X=k=>pl+(W-pl-pr)*((parseKey(k)-d0)/864e5)/span, Y=v=>pt+(H-pt-pb)*(1-(v-mn)/(mx-mn));
-    const path=wv.map(([k,v],i)=>(i?"L":"M")+X(k).toFixed(1)+" "+Y(v.waist).toFixed(1)).join(" ");
-    chart=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" role="img" aria-label="Midjemål over tid"><text x="${pl-4}" y="${(Y(mx-1)+3).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--muted)">${fmt1(mx-1)}</text><text x="${pl-4}" y="${(Y(mn+1)+3).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--muted)">${fmt1(mn+1)}</text><path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2"/>${wv.map(([k,v])=>`<circle cx="${X(k).toFixed(1)}" cy="${Y(v.waist).toFixed(1)}" r="2.5" fill="var(--accent)"/>`).join("")}<text x="${pl}" y="${H-3}" font-size="9" fill="var(--muted)">midje (cm)</text></svg>`; }
-  const sum=MEAS.map(([k,l])=>{ const a=first(k), b=lastv(k); if(b==null) return ""; const dv=a!=null&&ms.length>1?b-a:null;
-    return `<div><b class="num">${fmt1(b)}</b><span>${l}${dv?` ${dv>0?"+":"−"}${fmt1(Math.abs(dv))}`:""}</span></div>`; }).join("");
+    const path=wv.map(([k,v],i)=>(i?"L":"M")+X(k).toFixed(1)+" "+Y(v[ck]).toFixed(1)).join(" ");
+    const lab=k=>{ const d=parseKey(k); return `${d.getDate()}. ${MON[d.getMonth()]}`; };
+    chart=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" role="img" aria-label="${ALL.find(x=>x[0]===ck)[1]} over tid"><text x="${pl-4}" y="${(Y(mx-1)+3).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--muted)">${fmt1(mx-1)}</text><text x="${pl-4}" y="${(Y(mn+1)+3).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--muted)">${fmt1(mn+1)}</text><path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2"/>${wv.map(([k,v])=>`<circle cx="${X(k).toFixed(1)}" cy="${Y(v[ck]).toFixed(1)}" r="2.5" fill="var(--accent)"/>`).join("")}<text x="${pl}" y="${H-3}" font-size="9" fill="var(--muted)">${lab(wv[0][0])}</text><text x="${W-pr}" y="${H-3}" text-anchor="end" font-size="9" fill="var(--muted)">${lab(wv[wv.length-1][0])}</text></svg>`; }
+  const table=has.length?`<table class="mtab num"><tr><th></th><th>Siste</th><th>Endring</th></tr>${has.map(([k,l])=>{ const a=first(k), b=lastv(k), dv=a!=null?b-a:0;
+      return `<tr><td>${l}</td><td><b>${fmt1(b)}</b></td><td style="color:${Math.abs(dv)<0.05?"var(--muted)":"var(--fg)"}">${Math.abs(dv)<0.05?"–":(dv>0?"+":"−")+fmt1(Math.abs(dv))}</td></tr>`; }).join("")}</table>
+    <div class="note" style="margin-top:-4px">Endring siden første måling, i cm.</div>`:"";
   return `<section class="card" style="display:flex;flex-direction:column;gap:10px">
-    <div class="grid3">${MEAS.map(([k,l])=>`<div class="field"><label for="ms-${k}">${l} (cm)</label><input class="inp num" id="ms-${k}" inputmode="decimal" placeholder="${lastv(k)!=null?fmt1(lastv(k)):"cm"}"></div>`).join("")}</div>
+    ${measFields("ms",null,lastv)}
+    <div class="row" style="flex-wrap:nowrap"><label for="msDate" class="note">Dato</label><input class="inp num" type="date" id="msDate" value="${t}" max="${t}" style="flex:1;min-width:0"></div>
+    <details><summary class="note" style="cursor:pointer">Slik måler du</summary><div class="note" style="margin-top:6px">${MEAS.filter(([k])=>!/L$/.test(k)).map(([k,l])=>`<b>${l.replace(/ høyre$/,"")}:</b> ${MEAS_TIP[k]}`).join("<br>")}<br>Mål om morgenen før frokost, med målebåndet stramt mot huden uten å klemme. Du trenger ikke fylle inn alle feltene.</div></details>
     <button class="btn primary block" data-act="logMeasure">Logg kroppsmål</button>
-    ${sum?`<div class="gnums">${sum}</div><div class="note" style="text-align:center;margin-top:-4px">Endring siden første måling</div>`:`<div class="note">Mål med målebånd i samme høyde hver gang, gjerne hver 2.–4. uke. Midjemålet viser fettap selv når vekta står stille.</div>`}
+    ${table||`<div class="note">Mål gjerne hver 2.–4. uke. Midje- og navlemålet viser fettap selv når vekta står stille.</div>`}
+    ${has.length>1?`<div class="row" style="gap:6px">${has.map(([k,l])=>`<button class="chip ${k===ck?"on":""}" data-act="measK" data-v="${k}">${l}</button>`).join("")}</div>`:""}
     ${chart}
-    ${rows.length?`<div class="wlist">${rows.slice(0,UI.allM?99:4).map(([k,v])=>`<button data-act="editMeasure" data-v="${k}"><span>${dateLabel(k)}</span><span class="num">${MEAS.filter(([mk])=>v[mk]!=null).map(([mk,ml])=>`${ml.toLowerCase()} <b>${fmt1(v[mk])}</b>`).join(" · ")}</span></button>`).join("")}</div>
+    ${rows.length?`<div class="wlist">${rows.slice(0,UI.allM?99:4).map(([k,v])=>{ const n=ALL.filter(([mk])=>v[mk]!=null).length; return `<button data-act="editMeasure" data-v="${k}"><span>${dateLabel(k)}</span><span class="num">${n} mål${v.waist!=null?` · midje <b>${fmt1(v.waist)}</b>`:""}${v.navel!=null?` · navle <b>${fmt1(v.navel)}</b>`:""}</span></button>`; }).join("")}</div>
       ${rows.length>4?`<button class="link sm" data-act="allM">${UI.allM?"Vis færre":`Vis alle (${rows.length})`}</button>`:""}`:""}
   </section>`;
 }
 function sheetMeasure(s){ const v=(measDoc().items||{})[s.date]||{};
-  return `<div class="grid3">${MEAS.map(([k,l])=>`<div class="field"><label for="me-${k}">${l} (cm)</label><input class="inp num" id="me-${k}" inputmode="decimal" value="${v[k]!=null?fmt1(v[k]):""}"></div>`).join("")}</div>
+  return `${measFields("me",v)}
+   ${MEAS_OLD.filter(([k])=>v[k]!=null).map(([k,l])=>`<div class="note num">${l}: ${fmt1(v[k])} cm (beholdes)</div>`).join("")}
    <div class="field"><label for="meDate">Dato</label><input class="inp num" type="date" id="meDate" value="${s.date}" max="${todayKey()}"></div>
    <button class="btn primary block" data-act="saveMeasureEdit">Lagre</button><button class="btn danger block" data-act="deleteMeasure">Slett måling</button>`; }
 function viewGoals(){
@@ -2412,11 +2432,12 @@ Svar KUN med JSON: {"items":[{"name":"kort norsk navn","grams":tall,"kcal":tall,
   else if(a==="calMonth"){ UI.calMonth=v; render(); }
   else if(a==="goalsOpen"){ UI.goalsOpen=!UI.goalsOpen; render(); }
   else if(a==="allM"){ UI.allM=!UI.allM; render(); }
-  else if(a==="logMeasure"){ const rec={}; for(const [k] of MEAS){ const x=numIn($("#ms-"+k).value); if(x>=20&&x<=250) rec[k]=x; }
+  else if(a==="logMeasure"){ const rec=readMeas("ms"), dk=($("#msDate")&&$("#msDate").value)||todayKey();
     if(!Object.keys(rec).length){ toast("Skriv inn minst ett mål i cm"); return; }
-    const md=clone(measDoc()); md.kind="measures"; md.items=md.items||{}; md.items[todayKey()]=Object.assign(md.items[todayKey()]||{},rec); writeDoc(pk("measures"),md); toast("Kroppsmål logget"); }
+    const md=clone(measDoc()); md.kind="measures"; md.items=md.items||{}; md.items[dk]=Object.assign(md.items[dk]||{},rec); writeDoc(pk("measures"),md); toast(`${Object.keys(rec).length} mål logget for ${dateLabel(dk).toLowerCase()}`); }
+  else if(a==="measK"){ UI.measK=v; render(); }
   else if(a==="editMeasure"){ openSheet({type:"measure",date:v}); }
-  else if(a==="saveMeasureEdit"){ const s=UI.sheet, rec={}; for(const [k] of MEAS){ const x=numIn($("#me-"+k).value); if(x>=20&&x<=250) rec[k]=x; }
+  else if(a==="saveMeasureEdit"){ const s=UI.sheet, old=(measDoc().items||{})[s.date]||{}, rec=readMeas("me"); for(const [k] of MEAS_OLD) if(old[k]!=null) rec[k]=old[k];
     const k2=$("#meDate").value||s.date, md=clone(measDoc()); md.kind="measures"; md.items=md.items||{}; delete md.items[s.date]; if(Object.keys(rec).length) md.items[k2]=rec;
     closeSheet(); writeDoc(pk("measures"),md); toast("Kroppsmål lagret"); }
   else if(a==="deleteMeasure"){ const s=UI.sheet, md=clone(measDoc()); md.kind="measures"; md.items=md.items||{}; delete md.items[s.date]; closeSheet(); writeDoc(pk("measures"),md); toast("Måling slettet"); }
