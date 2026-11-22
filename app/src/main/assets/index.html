@@ -1,4 +1,4 @@
-<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="33"><title>Makrologg</title><meta name="theme-color" content="#000000"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><meta name="apple-mobile-web-app-title" content="Makrologg"><link rel="apple-touch-icon" href="apple-touch-icon.png"><link rel="manifest" href="manifest.webmanifest">
+<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="min-native" content="2"><meta name="web-version" content="34"><title>Makrologg</title><meta name="theme-color" content="#000000"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><meta name="apple-mobile-web-app-title" content="Makrologg"><link rel="apple-touch-icon" href="apple-touch-icon.png"><link rel="manifest" href="manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
 <style>
@@ -369,6 +369,36 @@ html.lock,html.lock body{overflow:hidden}
 .tabs3{display:flex;gap:6px}
 .tabs3 button{flex:1}
 .wlogrow{display:flex;gap:8px;align-items:center}
+html,body{overflow-x:clip;max-width:100%}
+@media (max-width:360px){.summary{grid-template-columns:104px 1fr!important;gap:10px!important}.summary .dial{width:104px;height:104px}.summary .dial .big{font-size:26px}}
+header.top{min-width:0}
+.brand{font-size:clamp(18px,5.4vw,22px)!important;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:clip;flex-shrink:1}
+.hright{gap:6px!important;flex-shrink:0}
+.datenav{gap:2px!important}
+.datenav button{width:34px!important;height:34px!important}
+.datenav .dlabel{min-width:0!important;width:auto!important;padding:0 4px!important}
+.gear{width:34px!important;height:34px!important}
+.kline{align-items:center;gap:8px;flex-wrap:wrap}
+.kline .kr{display:flex;align-items:center;gap:6px;margin-left:auto}
+.ib{border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:999px;height:30px;min-width:30px;padding:0 8px;display:inline-flex;align-items:center;justify-content:center;gap:4px;font:inherit;font-size:12px;font-weight:700}
+.ib svg{width:16px;height:16px}
+.ib.on{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.wline{flex-wrap:wrap;row-gap:2px}
+.mgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:12px}
+.mtile{position:relative;background:var(--surface);border-radius:var(--radius,18px);box-shadow:var(--shadow);min-height:86px;display:flex;flex-direction:column}
+.mtile .mtap{flex:1;border:0;background:none;color:var(--fg);font:inherit;text-align:left;padding:12px 48px 12px 14px;display:flex;flex-direction:column;gap:2px;min-width:0;cursor:pointer}
+.mtile .mtap b{font-size:15px;line-height:1.2;overflow-wrap:anywhere}
+.mtile .mtap .kc{font-family:var(--display);font-weight:800;font-size:20px}
+.mtile .mtap small{color:var(--muted);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mtile.none .mtap b{color:var(--muted)}
+.mtile .plus{position:absolute;top:10px;right:10px;width:34px!important;height:34px!important;min-width:34px;padding:0!important;font-size:20px}
+.mtile .qa{margin:0 10px 10px;border:1px solid var(--line);background:transparent;color:var(--fg);border-radius:999px;padding:5px 8px;font:inherit;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
+.mtile.next{outline:2px solid var(--accent)}
+.msheet ul{list-style:none;margin:0;padding:0}
+.msheet li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 2px;border-top:1px solid var(--line);cursor:pointer}
+.msheet li:first-child{border-top:0}
+.msheet li small{color:var(--muted)}
+.msheet .tools{display:flex;flex-wrap:wrap;gap:6px}
 </style>
 
 </head><body><div class="app" id="app">
@@ -413,7 +443,7 @@ const BASE = [
  ["Müsli",380,10,9,62,["1 dl",45]],["Kesam lett",64,10,1,4,["1 dl",100]]
 ].map((r,i)=>({id:"b"+i,name:r[0],per:{kcal:r[1],p:r[2],f:r[3],c:r[4]},portion:r[5]?{label:r[5][0],g:r[5][1]}:null,base:true}));
 
-const MEALS_BASE = [["frokost","Frokost"],["lunsj","Lunsj"],["snacks","Mellommåltid"],["middag","Middag"],["kvelds","Kveldsmat"],["pre","Pre-workout"]];
+const MEALS_BASE = [["frokost","Frokost"],["lunsj","Lunsj"],["snacks","Mellommåltid"],["middag","Middag"],["kvelds","Kveldsmat"],["snack","Snacks"],["pre","Pre-workout"]];
 let MEALS = MEALS_BASE.map(x=>x.slice()), MEALS_HIDDEN = new Set();
 function mealCfg(){ const c=(S.docs&&S.docs.settings||{}).mealCfg; return Array.isArray(c)&&c.length?c:null; }
 function applyMeals(){ const c=mealCfg(); MEALS_HIDDEN=new Set();
@@ -465,6 +495,7 @@ const queues = {};
 function writeDoc(id, data){
   hhBeforeWrite(id, data);
   S.docs[id] = data; renderSoon(); reschedule(); syncSoon(); hhMark(id);
+  if(UI.sheet&&UI.sheet.type==="meal") setTimeout(()=>{ if(UI.sheet&&UI.sheet.type==="meal") renderSheet(); },0);
   if(S.mode!=="db"){ lsSave(); return; }
   const ref = S.db.doc("data/users/"+S.uidv+"/"+id);
   queues[id] = (queues[id]||Promise.resolve()).then(()=>ref.set(data)).catch(e=>{
@@ -506,7 +537,7 @@ const weightsDoc = () => S.docs[pk("weights")] || {kind:"weights",items:{}};
 /* ---------- day plan ---------- */
 const HOUR=3600e3;
 const DEFAULT_PLAN = {defaultWake:"07:00", reminders:false,
-  slots:{frokost:{on:true,off:30,tpl:""},lunsj:{on:true,off:270,tpl:""},middag:{on:true,off:540,tpl:""},kvelds:{on:true,off:780,tpl:""},snacks:{on:false,off:390,tpl:""}},
+  slots:{frokost:{on:true,off:30,tpl:""},lunsj:{on:true,off:270,tpl:""},middag:{on:true,off:540,tpl:""},kvelds:{on:true,off:780,tpl:""},snacks:{on:false,off:390,tpl:""},snack:{on:false,off:720,tpl:""}},
   pre:{before:90,tpl:"",extraKcal:300,defaultTime:"17:00"}};
 function plan(){ const p=(S.docs[pk("profile")]||{}).plan||{}, out=clone(DEFAULT_PLAN);
   if(p.defaultWake) out.defaultWake=p.defaultWake; if(p.reminders!=null) out.reminders=!!p.reminders;
@@ -852,7 +883,7 @@ function render(){
   // tabs
   $("#tabs").innerHTML = [["dag","Dag",ICON.day],["meny","Meny",ICON.pot],["hist","Historikk",ICON.hist],["mal","Kropp",ICON.goal]]
     .map(([k,l,i])=>`<button data-act="tab" data-v="${k}" class="${UI.tab===k?"on":""}">${i}${l}</button>`).join("");
-  $("#datenav").innerHTML = UI.tab==="dag" ? `<button data-act="day" data-v="-1" aria-label="Forrige dag">‹</button><button class="dlabel" data-act="pickDate" aria-label="Velg dato: ${dateLabel(UI.date)}">${dateLabel(UI.date)}</button><button data-act="day" data-v="1" aria-label="Neste dag">›</button><button class="more" data-act="dayMenu" aria-label="Mer for dagen">⋯</button>` : "";
+  $("#datenav").innerHTML = UI.tab==="dag" ? `<button data-act="day" data-v="-1" aria-label="Forrige dag">‹</button><button class="dlabel" data-act="pickDate" aria-label="Velg dato: ${dateLabel(UI.date)}">${dateLabel(UI.date)}</button><button data-act="day" data-v="1" aria-label="Neste dag">›</button>` : "";
   { const gb=$("#gearBtn"); if(gb) gb.classList.toggle("badge", needBackup()); }
   const gb=$("#gearBtn"); if(gb) gb.classList.toggle("on", UI.tab==="innst"||UI.tab==="tider");
   if(!S.ready){ return; }
@@ -913,13 +944,11 @@ function viewDay(){
       <circle cx="66" cy="66" r="56" fill="none" stroke="${t.kcal>g.kcal*1.10?"var(--over)":over?"var(--warn)":"var(--kcal)"}" stroke-width="12" stroke-linecap="round" stroke-dasharray="${C*frac} ${C}"/></svg>
       <div class="center"><div class="big num">${r0(Math.abs(left))}</div><div class="small">${over?"kcal over":"kcal igjen"}</div></div></div>
     <div class="macros">${macroRow("Protein",t.p,g.p,"var(--prot)")}${macroRow("Karbohydrater",t.c,g.c,"var(--carb)")}${macroRow("Fett",t.f,g.f,"var(--fat)")}</div>
-    <div class="kline"><span>Spist <b class="num">${r0(t.kcal)}</b> kcal</span><span>Mål <b class="num">${r0(g.kcal)}</b> kcal</span></div>
+    <div class="kline"><span>Spist <b class="num">${r0(t.kcal)}</b> av <b class="num">${r0(g.kcal)}</b> kcal</span><span class="kr"><button class="ib ${isTraining(UI.date)?"on":""}" data-act="trainTap" aria-pressed="${isTraining(UI.date)}" aria-label="Treningsdag">${ICON.dumbbell}${isTraining(UI.date)?`<span class="num">+${r0(trainExtra(UI.date))}</span>`:""}</button><button class="ib" data-act="dayMenu" aria-label="Mer for dagen">⋯</button></span></div>
     ${weekLine(UI.date)}
-    <div class="sfoot"><button class="tchip ${isTraining(UI.date)?"on":""}" data-act="trainTap" aria-pressed="${isTraining(UI.date)}">${ICON.dumbbell}<span>${isTraining(UI.date)?`Treningsdag +${r0(trainExtra(UI.date))}`:"Treningsdag"}</span></button>
-      ${d.note?`<button class="link sm" data-act="noteOpen">Notat ✎</button>`:""}</div>
+
   </section>`;
   h += weekSummaryCard();
-  h += goalLine();
   h += plannedCard(UI.date);
   if(!(S.docs[pk("profile")])) h += `<section class="card"><div style="font-weight:600;margin-bottom:4px">Sett dine egne mål</div><div class="note" style="margin-bottom:10px">Målene over er standardverdier. Regn ut dine basert på vekt, høyde og aktivitet.</div><button class="btn primary" data-act="tab" data-v="mal">Regn ut mål</button></section>`;
   const yday = dayDoc(addDays(UI.date,-1));
@@ -927,27 +956,17 @@ function viewDay(){
   const nx=null;
   const keys=MEALS.map(x=>x[0]).filter(k=>(k!=="pre"||isTraining(UI.date)||hasMeal(d,"pre"))&&(!MEALS_HIDDEN.has(k)||hasMeal(d,k)));
   if(!mealCfg()) keys.sort((a,b)=>{ const x=at[a]?at[a].at:Infinity, y=at[b]?at[b].at:Infinity; return x===y?0:x-y; });
-  for(const mk of keys){ const ml=meal(mk);
-    const es=(d.entries||[]).filter(e=>e.meal===mk);
-    const kc=es.reduce((a,e)=>a+e.kcal,0);
-    const last=lastMeal(UI.date, mk);
-    const sameAlready = last && es.length && last.es.every(x=>es.some(e=>e.name===x.name));
-    const copyBtn = last && !sameAlready ? `<button class="btn ghost" data-act="copyY" data-v="${mk}" data-k="${last.k}">${es.length?"+ ":""}Samme som ${last.label} <span class="num">· ${r0(last.kcal)} kcal</span></button>` : "";
-    if(!es.length){ const tpE=at[mk]?tplById(at[mk].tpl):null;
-      h += `<section class="card meal empty"><h3>${ml}</h3><div class="row">
-        ${tpE?`<button class="btn ghost sm" data-act="logSlotTpl" data-v="${mk}">${esc(tpE.name.length>14?tpE.name.slice(0,13)+"…":tpE.name)} · <span class="num">${r0(tplTotals(tpE).kcal)} kcal</span></button>`:""}
-        ${last?`<button class="btn ghost sm" data-act="copyY" data-v="${mk}" data-k="${last.k}" aria-label="Samme som ${last.label}, ${r0(last.kcal)} kcal" style="white-space:nowrap">↻ ${last.label[0].toUpperCase()+last.label.slice(1)} · <span class="num">${r0(last.kcal)} kcal</span></button>`:""}
-        <button class="btn primary plus" data-act="add" data-v="${mk}" aria-label="Legg til i ${ml.toLowerCase()}">+</button></div></section>`;
+  h += `<div class="mgrid">`;
+  for(const mk of keys){ const ml=meal(mk), es=(d.entries||[]).filter(e=>e.meal===mk), kc=es.reduce((a,e)=>a+e.kcal,0);
+    if(es.length){ const sm=es.reduce((a,e)=>{a.p+=e.p;a.c+=e.c;a.f+=e.f;return a;},{p:0,c:0,f:0});
+      h += `<section class="mtile"><button class="mtap" data-act="mealOpen" data-v="${mk}"><b>${ml}</b><span class="kc num">${r0(kc)}</span><small class="num">P ${r0(sm.p)} · K ${r0(sm.c)} · F ${r0(sm.f)}</small></button><button class="btn primary plus" data-act="add" data-v="${mk}" aria-label="Legg til i ${ml.toLowerCase()}">+</button></section>`;
       continue; }
-    const tp=at[mk]&&!es.length?tplById(at[mk].tpl):null;
-    const open=!!(UI.openMeals&&UI.openMeals[mk]);
-    const sm=es.reduce((a,e)=>{a.p+=e.p;a.c+=e.c;a.f+=e.f;return a;},{p:0,c:0,f:0});
-    const others=people().list.filter(x=>x.id!==CUR);
-    h += `<section class="card meal ${nx&&nx.meal===mk?"next":""} ${open&&es.length?"open":""}"><div class="mh2"><button class="mh" data-act="toggleMeal" data-v="${mk}" ${es.length?`aria-expanded="${open}"`:"disabled"}><span class="mt"><h3>${ml}</h3></span><span class="mr"><span class="mk num">${es.length?r0(kc)+" kcal":""}</span>${es.length?`<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>`:""}</span></button><button class="btn primary plus" data-act="add" data-v="${mk}" aria-label="Legg til i ${ml.toLowerCase()}">+</button></div>
-      ${es.length&&!open?`<div class="msum num">${es.length} ${es.length===1?"ting":"ting"} · P ${r0(sm.p)} g · K ${r0(sm.c)} g · F ${r0(sm.f)} g</div>`:""}
-      ${es.length&&open?`<div class="mtools">${last&&!sameAlready?`<button class="link sm" data-act="copyY" data-v="${mk}" data-k="${last.k}">+ Samme som ${last.label} (${r0(last.kcal)} kcal)</button>`:""}<button class="link sm" data-act="copyMeal" data-v="${mk}" data-k="day">Kopier til annen dag</button>${others.length?`<button class="link sm" data-act="copyMeal" data-v="${mk}">Kopier til ${others.length===1?esc(others[0].name):"andre"}</button>`:""}<button class="link sm" data-act="saveAsTpl" data-v="${mk}">Lagre i Mine måltider</button></div><ul>${es.map(e=>`<li data-act="editEntry" data-v="${e.id}"><div class="nm"><div>${esc(e.name)}${e.est?'<span class="tag">anslag</span>':""}${e.quick?'<span class="tag">hurtig</span>':""}</div><small class="num">${e.quick?"":r0(e.g)+" g · "}P ${r0(e.p)} · K ${r0(e.c)} · F ${r0(e.f)}</small></div><div class="kc num">${r0(e.kcal)}</div></li>`).join("")}</ul>`:""}
-      </section>`;
+    const last=lastMeal(UI.date, mk), tpE=at[mk]?tplById(at[mk].tpl):null;
+    const qa = tpE ? `<button class="qa" data-act="logSlotTpl" data-v="${mk}">${esc(tpE.name)} · <span class="num">${r0(tplTotals(tpE).kcal)}</span></button>`
+      : last ? `<button class="qa" data-act="copyY" data-v="${mk}" data-k="${last.k}" aria-label="Samme som ${last.label}, ${r0(last.kcal)} kcal">↻ ${last.label[0].toUpperCase()+last.label.slice(1)} · <span class="num">${r0(last.kcal)}</span></button>` : "";
+    h += `<section class="mtile none"><button class="mtap" data-act="add" data-v="${mk}"><b>${ml}</b><small>${qa?"":"Ingenting ennå"}</small></button>${qa}<button class="btn primary plus" data-act="add" data-v="${mk}" aria-label="Legg til i ${ml.toLowerCase()}">+</button></section>`;
   }
+  h += `</div>`;
   if(d.note||UI.noteOpen) h += `<section class="card notecard"><label for="dayNote" class="flabel">Notat for dagen</label><textarea class="inp" id="dayNote" rows="2" placeholder="F.eks. syk, bursdag, reise">${esc(d.note||"")}</textarea></section>`;
   return h;
 }
@@ -1003,6 +1022,17 @@ function weekSummaryCard(){
     <button class="btn ghost block" data-act="tab" data-v="hist">Se Historikk</button></section>`;
 }
 function needBackup(){ if(hhState()) return false; const b=backupInfo(), nDays=Object.keys(S.docs).filter(k=>/(^|:)day-/.test(k)).length; return nDays>=5&&Date.now()>=b.snooze&&(b.days==null||b.days>=14); }
+function sheetMeal(s){
+  const mk=s.mk, d=dayDoc(UI.date), es=(d.entries||[]).filter(e=>e.meal===mk), kc=es.reduce((a,e)=>a+e.kcal,0), sm=es.reduce((a,e)=>{a.p+=e.p;a.c+=e.c;a.f+=e.f;return a;},{p:0,c:0,f:0});
+  const last=lastMeal(UI.date,mk), same=last&&es.length&&last.es.every(x=>es.some(e=>e.name===x.name)), others=people().list.filter(x=>x.id!==CUR);
+  return `<div class="msheet" style="display:flex;flex-direction:column;gap:12px">
+    ${macroPreview({kcal:kc,p:sm.p,c:sm.c,f:sm.f})}
+    ${es.length?`<ul>${es.map(e=>`<li data-act="editEntry" data-v="${e.id}"><div><div>${esc(e.name)}${e.est?'<span class="tag">anslag</span>':""}${e.quick?'<span class="tag">hurtig</span>':""}</div><small class="num">${e.quick?"":r0(e.g)+" g · "}P ${r0(e.p)} · K ${r0(e.c)} · F ${r0(e.f)}</small></div><b class="num">${r0(e.kcal)}</b></li>`).join("")}</ul>`:`<div class="note">Ingenting logget ennå.</div>`}
+    <button class="btn primary block" data-act="add" data-v="${mk}">+ Legg til</button>
+    <div class="tools">${last&&!same?`<button class="chip" data-act="copyY" data-v="${mk}" data-k="${last.k}">↻ Samme som ${last.label} · ${r0(last.kcal)}</button>`:""}
+      ${es.length?`<button class="chip" data-act="copyMeal" data-v="${mk}" data-k="day">Kopier til annen dag</button>${others.length?`<button class="chip" data-act="copyMeal" data-v="${mk}">Kopier til ${others.length===1?esc(others[0].name):"andre"}</button>`:""}<button class="chip" data-act="saveAsTpl" data-v="${mk}">Lagre i Mine måltider</button>`:""}</div>
+  </div>`;
+}
 function sheetDayMenu(){
   const d=dayDoc(UI.date), oth=people().list.filter(x=>x.id!==CUR), has=(d.entries||[]).length;
   return `<div class="list setnav">
@@ -1761,6 +1791,7 @@ function renderSheet(){
   else if(s.type==="quick"){ title=s.entryId?"Endre hurtiglogg":"Hurtiglogg"; body=sheetQuick(s); }
   else if(s.type==="slot"){ title=meal(s.slot)+(s.at?" kl "+hhmm(s.at):""); body=sheetSlot(s); }
   else if(s.type==="tpl"){ title=UI.tplDraft.dish?(UI.tplDraft.prep?(UI.tplDraft.id?"Endre mealprep":"Ny mealprep"):UI.tplDraft.id?"Endre rett":"Ny rett"):UI.tplDraft.id&&tplById(UI.tplDraft.id)?"Endre fast måltid":"Nytt fast måltid"; body=UI.tplDraft.dish?sheetDish():sheetTpl(); }
+  else if(s.type==="meal"){ title=meal(s.mk); body=sheetMeal(s); }
   else if(s.type==="dayMenu"){ title=UI.date===todayKey()?"I dag":dateLabel(UI.date); body=sheetDayMenu(); }
   else if(s.type==="train"){ title="Trening"; body=sheetTrain(); }
   else if(s.type==="weekInfo"){ title="Ukebudsjett"; body=sheetWeekInfo(); }
@@ -2339,6 +2370,7 @@ document.addEventListener("click", async ev=>{
     personKeys(s.id).forEach(k=>delDoc(k));
     if(p.active===s.id) p.active=p.list[0].id;
     UI.sheet=null; renderSheet(); writeDoc("people",p); CUR=p.active; UI.date=todayKey(); UI.lastToday=UI.date; toast(`${s.name} er slettet`); }
+  else if(a==="mealOpen"){ openSheet({type:"meal",mk:v}); }
   else if(a==="toggleMeal"){ UI.openMeals=UI.openMeals||{}; UI.openMeals[v]=!UI.openMeals[v]; render(); }
   else if(a==="quick"){ openSheet({type:"quick",meal:UI.sheet?UI.sheet.meal:guessMeal()}); }
   else if(a==="saveQuick"){ const s=UI.sheet, q=quickVals(), name=$("#qkName").value.trim();
