@@ -34,7 +34,7 @@ Repoet må være offentlig for at appen skal finne oppdateringene.
 
 ## Synk til Google Sheets (coach)
 
-Under «Mål og vekt» → «Coach (Google Sheets)» kan appen sende dager, vekt og Garmin-tall
+Under «Mål og vekt» → «Coach (Google Sheets)» kan appen sende dager, vekt, kroppsmål (fanen «Mål») og Garmin-tall
 for alle personer til et Google-regneark. Mottakeren er et Apps Script i `data/coach/Kode.gs`
 (oppsettet står øverst i filen). Bare endrede poster sendes, via `httpJson`, og hva som er
 sendt huskes i localStorage under `makrologg.sync`.

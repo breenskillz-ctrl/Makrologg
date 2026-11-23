@@ -8,6 +8,7 @@
  *   Økter      – Loadlog: én rad per treningsdag (varighet, sett, volum, sammendrag med tagger og kommentarer, notat)
  *   Sett       – Loadlog: én rad per gjennomført sett (øvelse, vekt, reps, nivå, variant, e1RM)
  *   Kroppsmål  – Loadlog: én rad per måling (vekt, bryst, liv, armer, lår)
+ *   Mål        – Makrologg: én rad per person og måling (navle, midje, hofte, bryst, armer, lår)
  *   Oppsett    – Loadlog: én rad per person med egne programmer, blokker (1RM, hvor langt) og innstillinger
  * Loadlog kan også lese de siste dagene fra Garmin-fanen (GET ?read=garmin&pid=p0) for å vise dagsform.
  * Endres en dag i en app, oppdateres samme rad i stedet for å lage en ny.
@@ -84,6 +85,13 @@ var TABS = {
         return [r.date, r.person, s[0], s[1], n[s[0]], s[2], s[3], s[4], s[5], s[6], s[7], s[8], s[9], r.unit || '', r.pid];
       });
       if (rows.length) sh.getRange(sh.getLastRow() + 1, 1, rows.length, cols.length).setValues(rows.map(asText));
+    }
+  },
+  measure: {
+    name: 'Mål',
+    cols: ['Dato', 'Person', 'Navle', 'Midje', 'Hofte', 'Bryst', 'Arm V', 'Arm H', 'Lår V', 'Lår H', 'Person-ID', 'Oppdatert'],
+    row: function (r) {
+      return [r.date, r.person, v(r.navel), v(r.waist), v(r.hip), v(r.chest), v(r.armL), v(r.armR), v(r.thighL), v(r.thighR), r.pid, new Date()];
     }
   },
   setup: {
@@ -199,7 +207,7 @@ function handle(text) {
 
   // Videre til Supabase. Feiler det, svarer vi med feil, så appen prøver igjen senere
   // (regnearket tåler at samme post kommer flere ganger).
-  var sb = r.t === 'setup' ? null : toSupabase(r); // oppsettet hører bare hjemme i regnearket
+  var sb = r.t === 'setup' || r.t === 'measure' ? null : toSupabase(r); // oppsett og mål hører bare hjemme i regnearket
   if (sb && !sb.ok) return out({ ok: false, error: 'Supabase: ' + sb.error });
   return out({ ok: true, result: result, supabase: sb ? 'ok' : 'av' });
 }
@@ -262,12 +270,12 @@ function testSupabase() {
 
 /**
  * Kjør én gang fra Apps Script (velg «ryddDuplikater» i lista øverst og trykk Kjør).
- * Fjerner doble rader i Dager, Vekt, Garmin, Økter og Kroppsmål og beholder den nyeste
+ * Fjerner doble rader i Dager, Vekt, Garmin, Økter, Kroppsmål og Mål og beholder den nyeste
  * for hver dato og person. I «Sett» fjernes helt like rader.
  */
 function ryddDuplikater() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  ['Dager', 'Vekt', 'Garmin', 'Økter', 'Kroppsmål'].forEach(function (name) {
+  ['Dager', 'Vekt', 'Garmin', 'Økter', 'Kroppsmål', 'Mål'].forEach(function (name) {
     var sh = ss.getSheetByName(name);
     if (!sh || sh.getLastRow() < 3) return;
     var data = sh.getDataRange().getValues(), head = data[0], pidCol = head.indexOf('Person-ID');

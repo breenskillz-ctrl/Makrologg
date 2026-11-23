@@ -129,6 +129,33 @@ async function test(name, fn) {
     await A.context().close(); await B.context().close();
   });
 
+  await test("Kroppsmål sendes til regnearket, og gammel Apps Script-kode stopper ikke resten", async () => {
+    const k = today();
+    const s = Object.assign({}, seed, {
+      settings: { kind: "settings", sheetUrl: "https://script.test/exec" },
+      measures: { kind: "measures", items: { [k]: { navel: 88.5, waist: 83, armR: 36 } } },
+      weights: { kind: "weights", items: { [k]: 91 } }
+    });
+    for (const oldScript of [false, true]) {
+      const pg = await phone(s), got = [];
+      await pg.context().route(/script\.test/, r => {
+        const d = JSON.parse(new URL(r.request().url()).searchParams.get("d")); got.push(d);
+        const body = oldScript && d.t === "measure" ? { ok: false, error: "ukjent type" } : { ok: true };
+        return r.fulfill({ status: 200, headers: { "access-control-allow-origin": "*" }, contentType: "application/json", body: JSON.stringify(body) });
+      });
+      await pg.evaluate(() => runSync()); await pg.waitForTimeout(300);
+      const m = got.find(d => d.t === "measure");
+      assert.ok(m && m.navel === 88.5 && m.waist === 83 && m.armR === 36 && m.pid === "p0" && m.date === k, "Kroppsmål ble ikke sendt: " + JSON.stringify(got));
+      assert.ok(got.some(d => d.t === "weight") && got.some(d => d.t === "day"), "Vekt eller dag ble ikke sendt");
+      const st = await pg.evaluate(() => ({ err: SY.err, left: syncPending().length, text: syncStatusText() }));
+      assert.strictEqual(st.err, null, "Synken stoppet: " + st.err);
+      assert.strictEqual(st.left, 0, "Noe venter fortsatt");
+      assert.strictEqual(/Apps Script/.test(st.text), oldScript, "Feil statustekst: " + st.text);
+      assert.deepStrictEqual(pg.errors, []);
+      await pg.context().close();
+    }
+  });
+
   await test("Ingen sideveis scrolling på smal skjerm", async () => {
     const pg = await phone(seed, 320);
     for (const t of ["dag", "meny", "hist", "mal"]) {
