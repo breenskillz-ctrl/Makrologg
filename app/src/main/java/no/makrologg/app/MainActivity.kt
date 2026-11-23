@@ -29,7 +29,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         /** Raise when the bridge below gains features the web page depends on. */
-        const val NATIVE_API = 8
+        const val NATIVE_API = 9
         const val REPO = "breenskillz-ctrl/Makrologg"
         const val WEB_URL = "https://raw.githubusercontent.com/$REPO/main/app/src/main/assets/index.html"
         const val RELEASE_URL = "https://api.github.com/repos/$REPO/releases/latest"
@@ -41,6 +41,20 @@ class MainActivity : AppCompatActivity() {
     private val net = Executors.newFixedThreadPool(3)
     private var updateApkUrl: String? = null
     private val cachedHtml get() = File(filesDir, "web/index.html")
+    private val cachedSig get() = File(filesDir, "web/index.html.sig")
+
+    /* Content updates must be signed by the GitHub Actions job (private key only in GitHub Secrets).
+       Public key below; an update that does not verify is ignored and the app keeps what it has. */
+    private val CONTENT_PUBKEY = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE/FB0pDXtD9+8XObu5tEYxVYmG6OBiuUsw29Xc9lA07NT5l4CSNq9XEee2dwiGRE6ksqFBIDg3s39MLBWQE15Jg=="
+    private fun verifySig(html: String, sigB64: String?): Boolean = try {
+        if (sigB64.isNullOrBlank()) false else {
+            val kf = java.security.KeyFactory.getInstance("EC")
+            val pk = kf.generatePublic(java.security.spec.X509EncodedKeySpec(android.util.Base64.decode(CONTENT_PUBKEY, android.util.Base64.DEFAULT)))
+            val v = java.security.Signature.getInstance("SHA256withECDSA")
+            v.initVerify(pk); v.update(html.toByteArray(Charsets.UTF_8))
+            v.verify(android.util.Base64.decode(sigB64.trim(), android.util.Base64.DEFAULT))
+        }
+    } catch (e: Exception) { false }
 
     private val scanLauncher = registerForActivityResult(ScanContract()) { result ->
         val code = result.contents
@@ -173,7 +187,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun currentHtml(): String {
         val bundled = bundledHtml()
-        val cached = try { if (cachedHtml.exists()) cachedHtml.readText() else null } catch (e: Exception) { null }
+        val cached = try {
+            if (cachedHtml.exists() && cachedSig.exists()) cachedHtml.readText().takeIf { verifySig(it, cachedSig.readText()) } else null
+        } catch (e: Exception) { null }
         if (cached != null && minNative(cached) <= NATIVE_API && webVersion(cached) >= webVersion(bundled)) return cached
         return bundled
     }
@@ -189,8 +205,11 @@ class MainActivity : AppCompatActivity() {
             if (minNative(html) > NATIVE_API) return // needs a newer APK; the update banner covers that
             val current = currentHtml()
             if (html == current || webVersion(html) < webVersion(current)) return
+            val sig = httpGet(WEB_URL + ".sig?t=" + System.currentTimeMillis())
+            if (!verifySig(html, sig)) return // unsigned or tampered: keep the current version
             cachedHtml.parentFile?.mkdirs()
             cachedHtml.writeText(html)
+            cachedSig.writeText(sig!!.trim())
             runOnUiThread {
                 web.evaluateJavascript("window.canReload ? window.canReload() : true") { ok ->
                     if (ok == "true") loadPage(html)

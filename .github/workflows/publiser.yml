@@ -1,0 +1,80 @@
+name: Test, signer og publiser innhold
+
+# Kjører når appens innhold endres. Først testene, så signeres index.html med nøkkelen i
+# GitHub Secrets (CONTENT_SIGN_KEY), og til slutt publiseres nettversjonen.
+# Android-appen bruker bare oppdateringer med gyldig signatur.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/src/main/assets/**'
+      - 'tests/**'
+      - '.github/workflows/publiser.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: publiser
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Installer Playwright
+        run: |
+          npm install --no-save playwright@1.49.1
+          npx playwright install --with-deps chromium
+      - name: Kjør testene
+        run: node tests/run.js
+
+  sign:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Signer index.html
+        env:
+          KEY: ${{ secrets.CONTENT_SIGN_KEY }}
+        run: |
+          if [ -z "$KEY" ]; then echo "::warning::CONTENT_SIGN_KEY mangler – innholdet blir ikke signert"; exit 0; fi
+          F=app/src/main/assets/index.html
+          umask 077; printf '%s\n' "$KEY" > "$RUNNER_TEMP/k.pem"
+          openssl dgst -sha256 -sign "$RUNNER_TEMP/k.pem" -out "$RUNNER_TEMP/sig.bin" "$F"
+          rm -f "$RUNNER_TEMP/k.pem"
+          openssl dgst -sha256 -verify app/signing/content_pub.pem -signature "$RUNNER_TEMP/sig.bin" "$F"
+          base64 -w0 "$RUNNER_TEMP/sig.bin" > "$F.sig"
+          HASH=$(sha256sum "$F" | cut -d' ' -f1)
+          git config user.name "Makrologg"; git config user.email "noreply@anthropic.com"
+          git add "$F.sig"
+          git diff --cached --quiet && exit 0
+          git commit -m "Signatur for index.html"
+          git pull --rebase origin main
+          if [ "$(sha256sum "$F" | cut -d' ' -f1)" != "$HASH" ]; then echo "index.html er endret siden signering – neste kjøring tar den"; exit 0; fi
+          git push origin HEAD:main
+
+  pages:
+    needs: sign
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: app/src/main/assets
+      - id: deployment
+        uses: actions/deploy-pages@v4
